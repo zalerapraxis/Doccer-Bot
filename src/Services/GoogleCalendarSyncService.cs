@@ -60,7 +60,7 @@ namespace Doccer_Bot.Services
             _logger = logger;
         }
 
-        public async Task InitializeAsync()
+        public async Task Initialize()
         {
             // get calendar id from config
             _calendarId = _config["calendarId"];

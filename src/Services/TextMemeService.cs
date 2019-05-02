@@ -9,14 +9,19 @@ namespace Doccer_Bot.Services
 {
     public class TextMemeService
     {
-        private string _directory = $"{Environment.CurrentDirectory}/memes";
+        private readonly LoggingService _logger;
 
-        public TextMemeService()
+        private string _directory = $"{Environment.CurrentDirectory}/memes";
+        private List<string> _memes = new List<string>();
+
+        public TextMemeService(LoggingService logger)
         {
+            _logger = logger;
         }
 
-        public async Task<string> GetMemeTextForNoEvents()
+        public async Task Initialize()
         {
+            // create directory if not present
             if (!System.IO.Directory.Exists(_directory))
             {
                 System.IO.Directory.CreateDirectory(_directory);
@@ -24,16 +29,23 @@ namespace Doccer_Bot.Services
 
             // get list of files
             var fileList = System.IO.Directory.GetFiles(_directory);
+            foreach (var file in fileList)
+            {
+                var fileContents = await System.IO.File.ReadAllTextAsync(file);
+                _memes.Add(fileContents);
+            }
 
+            await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"Loaded {_memes.Count} files."));
+        }
+
+        public async Task<string> GetMemeTextForNoEvents()
+        {
             // randomly select a file by generating an index value
             Random rng = new Random();
-            int index = rng.Next(0, fileList.Length);
-            var file = fileList[index];
+            int index = rng.Next(0, _memes.Count);
+            var meme  = _memes[index];
 
-            // read the contents of the file
-            var response = await System.IO.File.ReadAllTextAsync(file);
-
-            return response;
+            return meme;
         }
     }
 }

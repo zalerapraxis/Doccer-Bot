@@ -40,9 +40,10 @@ namespace Example
 
             await provider.GetRequiredService<StartupService>().StartAsync();       // Start the startup service
 
-            await provider.GetRequiredService<GoogleCalendarSyncService>().InitializeAsync();
-            await provider.GetRequiredService<ScheduleService>().InitializeAsync();
+            await provider.GetRequiredService<GoogleCalendarSyncService>().Initialize();
+            await provider.GetRequiredService<ScheduleService>().Initialize();
             await provider.GetRequiredService<GoogleCalendarSyncService>().InitialSyncEvent();
+            await provider.GetRequiredService<TextMemeService>().Initialize();
             await provider.GetRequiredService<RaidEventsService>().StartTimer();
 
 

@@ -40,7 +40,7 @@ namespace Doccer_Bot.Services
             _logger = logger;
         }
 
-        public async Task InitializeAsync()
+        public async Task Initialize()
         {
             // get id of reminders channel from config
             var reminderChannelId = Convert.ToUInt64(_config["reminderChannelId"]);
