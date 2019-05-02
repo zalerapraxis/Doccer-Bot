@@ -9,6 +9,7 @@ using Discord;
 using Discord.Addons.Interactive;
 using Discord.Commands;
 using Discord.WebSocket;
+using Example;
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Auth.OAuth2.Flows;
 using Google.Apis.Auth.OAuth2.Requests;
@@ -26,14 +27,14 @@ namespace Doccer_Bot.Services
 {
     public class GoogleCalendarSyncService
     {
-        private DiscordSocketClient _discord;
-        private IConfiguration _config;
-        private IServiceProvider _services;
-        private ITextChannel _configChannel;
+        private readonly DiscordSocketClient _discord;
+        private readonly IConfiguration _config;
+        private readonly ScheduleService _scheduleService;
+        private readonly InteractiveService _interactiveService;
+        private readonly LoggingService _logger;
 
+        private ITextChannel _configChannel;
         private UserCredential _credential;
-        private ScheduleService _scheduleService;
-        private InteractiveService _interactiveService;
 
         private string _filePath = "client_id.json"; // API Console -> OAuth 2.0 client IDs -> entry -> download button
         private string _credentialPath = "token";
@@ -45,20 +46,22 @@ namespace Doccer_Bot.Services
 
         // DiscordSocketClient, CommandService, and IConfigurationRoot are injected automatically from the IServiceProvider
         public GoogleCalendarSyncService(
-            IServiceProvider services,
             DiscordSocketClient discord,
-            IConfigurationRoot config)
+            IConfigurationRoot config,
+            InteractiveService interactiveService,
+            ScheduleService scheduleService,
+            LoggingService logger)
         {
-            _services = services;
             _config = config;
             _discord = discord;
+
+            _interactiveService = interactiveService;
+            _scheduleService = scheduleService;
+            _logger = logger;
         }
 
         public async Task InitializeAsync()
         {
-            _scheduleService = _services.GetService<ScheduleService>();
-            _interactiveService = _services.GetService<InteractiveService>();
-
             // get calendar id from config
             _calendarId = _config["calendarId"];
 

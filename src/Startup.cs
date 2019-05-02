@@ -43,7 +43,6 @@ namespace Example
             await provider.GetRequiredService<GoogleCalendarSyncService>().InitializeAsync();
             await provider.GetRequiredService<ScheduleService>().InitializeAsync();
             await provider.GetRequiredService<GoogleCalendarSyncService>().InitialSyncEvent();
-            await provider.GetRequiredService<RaidEventsService>().InitializeAsync();
             await provider.GetRequiredService<RaidEventsService>().StartTimer();
 
 

@@ -8,6 +8,7 @@ using Discord;
 using Discord.Commands;
 using Discord.Rest;
 using Discord.WebSocket;
+using Example;
 using Google.Apis.Calendar.v3.Data;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,33 +17,31 @@ namespace Doccer_Bot.Services
 {
     public class ScheduleService
     {
-        private DiscordSocketClient _discord;
-        private IConfiguration _config;
-        private IServiceProvider _services;
+        private readonly DiscordSocketClient _discord;
+        private readonly IConfiguration _config;
+
+        private readonly TextMemeService _textMemeService;
+        private readonly LoggingService _logger;
+
         private ITextChannel _reminderChannel;
-
-        private RaidEventsService _timeEventsService;
-        private TextMemeService _textMemeService;
-
         public IUserMessage _eventEmbedMessage;
 
         // DiscordSocketClient, CommandService, and IConfigurationRoot are injected automatically from the IServiceProvider
         public ScheduleService(
-            IServiceProvider services,
             DiscordSocketClient discord,
-            IConfigurationRoot config)
+            IConfigurationRoot config,
+            TextMemeService textMemeService,
+            LoggingService logger)
         {
-            _services = services;
             _config = config;
             _discord = discord;
+
+            _textMemeService = textMemeService;
+            _logger = logger;
         }
 
         public async Task InitializeAsync()
         {
-
-            _timeEventsService = _services.GetService<RaidEventsService>();
-            _textMemeService = _services.GetService<TextMemeService>();
-
             // get id of reminders channel from config
             var reminderChannelId = Convert.ToUInt64(_config["reminderChannelId"]);
             _reminderChannel = _discord.GetChannel(reminderChannelId) as ITextChannel;

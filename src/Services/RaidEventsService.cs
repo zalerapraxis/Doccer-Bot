@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Discord;
 using Discord.WebSocket;
+using Example;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -11,24 +13,22 @@ namespace Doccer_Bot.Services
 {
     public class RaidEventsService
     {
-        private IServiceProvider _services;
-
-        private GoogleCalendarSyncService _googleCalendarSyncService;
-        private ScheduleService _scheduleService;
+        private readonly GoogleCalendarSyncService _googleCalendarSyncService;
+        private readonly ScheduleService _scheduleService;
+        private readonly LoggingService _logger;
 
         private Timer _scheduleTimer; // so garbage collection doesn't eat our timer after a bit
         public int _timerInterval = 5; // how often the timer will run, in minutes
 
         // DiscordSocketClient, CommandService, and IConfigurationRoot are injected automatically from the IServiceProvider
-        public RaidEventsService(IServiceProvider services)
+        public RaidEventsService(IServiceProvider services,
+            GoogleCalendarSyncService googleCalendarSyncService,
+            ScheduleService scheduleService,
+            LoggingService logger)
         {
-            _services = services;
-        }
-
-        public async Task InitializeAsync()
-        {
-            _googleCalendarSyncService = _services.GetService<GoogleCalendarSyncService>();
-            _scheduleService = _services.GetService<ScheduleService>();
+            _googleCalendarSyncService = googleCalendarSyncService;
+            _scheduleService = scheduleService;
+            _logger = logger;
         }
 
 
@@ -44,7 +44,7 @@ namespace Doccer_Bot.Services
                 await Task.Delay(1000);
             }
 
-            Console.WriteLine("Starting schedule/sync timer now.");
+            await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, "Starting schedule/sync timer now."));
 
             // _timerInterval expressed in milliseconds
             var intervalMs = Convert.ToInt32(TimeSpan.FromMinutes(_timerInterval).TotalMilliseconds);
@@ -61,7 +61,7 @@ namespace Doccer_Bot.Services
         // timer executes these functions on each run
         private async void RunTimer()
         {
-            Console.WriteLine($"[{DateTime.Now}] Timer ticked");
+            await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, "Timer ticked."));
             await SchedulingTasks();
             await GoogleCalendarResyncTasks();
         }
