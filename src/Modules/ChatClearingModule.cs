@@ -10,7 +10,7 @@ namespace Example.Modules
 {
     [Name("Moderator")]
     [RequireContext(ContextType.Guild)]
-    public class ModeratorModule : ModuleBase<SocketCommandContext>
+    public class ChatClearingModule : ModuleBase<SocketCommandContext>
     {
         // Dependency Injection will fill this value in for us
         public ScheduleService ScheduleService { get; set; }
