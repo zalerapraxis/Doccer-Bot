@@ -38,7 +38,7 @@ namespace Doccer_Bot.Services
             await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"Loaded {_memes.Count} files."));
         }
 
-        public async Task<string> GetMemeTextForNoEvents()
+        public string GetMemeTextForNoEvents()
         {
             // randomly select a file by generating an index value
             Random rng = new Random();

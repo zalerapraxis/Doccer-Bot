@@ -108,8 +108,15 @@ namespace Doccer_Bot.Services
         // posts the list of future events into the channel that called the command
         public async Task GetEvents(SocketCommandContext context)
         {
-            var embed = BuildEventsEmbed();
-            await context.Channel.SendMessageAsync(null, false, embed);
+            // if command context is the reminders channel, there's already an event embed
+            // so just update it instead of sending a new embed
+            if (context.Channel.Id == _reminderChannel.Id)
+                await SendEvents();
+            else // if context is not the reminders channel, send new embed
+            {
+                var embed = BuildEventsEmbed();
+                await context.Channel.SendMessageAsync(null, false, embed);
+            }
         }
 
         private Embed BuildEventsEmbed()
@@ -119,7 +126,7 @@ namespace Doccer_Bot.Services
             // if there are no items in CalendarEvents, build a field stating so
             if (CalendarEvents.Events.Count == 0)
             {
-                embedBuilder.AddField("No raids scheduled.", _textMemeService.GetMemeTextForNoEvents().Result);
+                embedBuilder.AddField("No raids scheduled.", _textMemeService.GetMemeTextForNoEvents());
             }
 
             // iterate through each calendar event and build strings from them
