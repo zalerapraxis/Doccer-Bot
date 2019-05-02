@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Doccer_Bot.Services
 {
-    public class TimeEventsService
+    public class RaidEventsService
     {
         private IServiceProvider _services;
 
@@ -20,7 +20,7 @@ namespace Doccer_Bot.Services
         public int _timerInterval = 5; // how often the timer will run, in minutes
 
         // DiscordSocketClient, CommandService, and IConfigurationRoot are injected automatically from the IServiceProvider
-        public TimeEventsService(IServiceProvider services)
+        public RaidEventsService(IServiceProvider services)
         {
             _services = services;
         }

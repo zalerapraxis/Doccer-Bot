@@ -43,8 +43,8 @@ namespace Example
             await provider.GetRequiredService<GoogleCalendarSyncService>().InitializeAsync();
             await provider.GetRequiredService<ScheduleService>().InitializeAsync();
             await provider.GetRequiredService<GoogleCalendarSyncService>().InitialSyncEvent();
-            await provider.GetRequiredService<TimeEventsService>().InitializeAsync();
-            await provider.GetRequiredService<TimeEventsService>().StartTimer();
+            await provider.GetRequiredService<RaidEventsService>().InitializeAsync();
+            await provider.GetRequiredService<RaidEventsService>().StartTimer();
 
 
             await Task.Delay(-1);                               // Keep the program alive
@@ -66,7 +66,7 @@ namespace Example
             .AddSingleton<StartupService>()         // Add startupservice to the collection
             .AddSingleton<LoggingService>()         // Add loggingservice to the collection
             .AddSingleton<InteractiveService>()
-            .AddSingleton<TimeEventsService>()
+            .AddSingleton<RaidEventsService>()
             .AddSingleton<GoogleCalendarSyncService>()
             .AddSingleton<ScheduleService>()
             .AddSingleton<TextMemeService>()

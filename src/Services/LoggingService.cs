@@ -26,18 +26,29 @@ namespace Example
             _discord.Log += OnLogAsync;
             _commands.Log += OnLogAsync;
         }
-        
-        private Task OnLogAsync(LogMessage msg)
+
+        public async Task Log(LogMessage msg)
+        {
+            await DoLogging(msg.Severity, msg.Source, msg.Message, msg.Exception);
+        }
+
+        private Task DoLogging(LogSeverity severity, string source, string message, Exception exception = null)
         {
             if (!Directory.Exists(_logDirectory))     // Create the log directory if it doesn't exist
                 Directory.CreateDirectory(_logDirectory);
             if (!File.Exists(_logFile))               // Create today's log file if it doesn't exist
                 File.Create(_logFile).Dispose();
 
-            string logText = $"{DateTime.UtcNow.ToString("hh:mm:ss")} [{msg.Severity}] {msg.Source}: {msg.Exception?.ToString() ?? msg.Message}";
+            string logText = $"{DateTime.UtcNow.ToString("hh:mm:ss")} [{severity}] {source}: {exception?.ToString() ?? message}";
             File.AppendAllText(_logFile, logText + "\n");     // Write the log text to a file
 
             return Console.Out.WriteLineAsync(logText);       // Write the log text to the console
+        }
+
+        // passes LogMessages from discordclient and commandservice over to the logging function
+        private async Task OnLogAsync(LogMessage msg)
+        {
+            await DoLogging(msg.Severity, msg.Source, msg.Message, msg.Exception);
         }
     }
 }

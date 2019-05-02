@@ -21,7 +21,7 @@ namespace Doccer_Bot.Services
         private IServiceProvider _services;
         private ITextChannel _reminderChannel;
 
-        private TimeEventsService _timeEventsService;
+        private RaidEventsService _timeEventsService;
         private TextMemeService _textMemeService;
 
         public IUserMessage _eventEmbedMessage;
@@ -40,7 +40,7 @@ namespace Doccer_Bot.Services
         public async Task InitializeAsync()
         {
 
-            _timeEventsService = _services.GetService<TimeEventsService>();
+            _timeEventsService = _services.GetService<RaidEventsService>();
             _textMemeService = _services.GetService<TextMemeService>();
 
             // get id of reminders channel from config
