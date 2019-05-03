@@ -28,6 +28,9 @@ namespace Doccer_Bot.Services
             }
 
             // get list of files
+            // logic says that putting everything into one file to cut down on reads would
+            // be best, but some of our files have multiple lines and I don't feel like trying
+            // to add delimiters to stuff and parsing them and blah blah blah it's on an SSD anyway
             var fileList = System.IO.Directory.GetFiles(_directory);
             foreach (var file in fileList)
             {
@@ -40,6 +43,8 @@ namespace Doccer_Bot.Services
 
         public string GetMemeTextForNoEvents()
         {
+            if (_memes.Count == 0) // didn't find any text files in the directory, so return a filler string
+                return "\"Just buy more raid days 4head\"";
             // randomly select a file by generating an index value
             Random rng = new Random();
             int index = rng.Next(0, _memes.Count);
