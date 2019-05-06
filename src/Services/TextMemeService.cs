@@ -11,7 +11,7 @@ namespace Doccer_Bot.Services
     {
         private readonly LoggingService _logger;
 
-        private string _directory = $"{Environment.CurrentDirectory}/memes";
+        private string _directory = $"{Environment.CurrentDirectory}/Memes";
         private List<string> _memes = new List<string>();
 
         public TextMemeService(LoggingService logger)

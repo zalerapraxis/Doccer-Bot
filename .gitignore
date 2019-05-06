@@ -252,3 +252,5 @@ paket-files/
 *.sln.iml
 
 src/_config\.yml
+
+src/client_id\.json

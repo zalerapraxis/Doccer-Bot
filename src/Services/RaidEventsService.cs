@@ -46,16 +46,25 @@ namespace Doccer_Bot.Services
 
             await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, "Starting schedule/sync timer now."));
 
-            // _timerInterval expressed in milliseconds
-            var intervalMs = Convert.ToInt32(TimeSpan.FromMinutes(_timerInterval).TotalMilliseconds);
-
             // the amount of time between now and the next interval, in this case the next real-world 15 min interval in the hour
             // this value is used only for the first run of the timer, and is not relevant afterwards. it tells the timer to wait
             // until the next 15m interval before it runs, and effectively lines up the timer to run every 15 minutes of each hour.
             var timeUntilNextInterval = GetTimeUntilNextInterval(TimezoneAdjustedDateTime.Now.Invoke(), _timerInterval);
 
+            // _timerInterval expressed in milliseconds
+            var intervalMs = Convert.ToInt32(TimeSpan.FromMinutes(_timerInterval).TotalMilliseconds);
+
             // run the timer
             _scheduleTimer = new Timer(delegate { RunTimer(); }, null, timeUntilNextInterval, intervalMs);
+        }
+
+        public void AdjustTimer()
+        {
+            // documentation for these lines is in the StartTimer method
+            var timeUntilNextInterval = GetTimeUntilNextInterval(TimezoneAdjustedDateTime.Now.Invoke(), _timerInterval);
+            var intervalMs = Convert.ToInt32(TimeSpan.FromMinutes(_timerInterval).TotalMilliseconds);
+
+            _scheduleTimer.Change(timeUntilNextInterval, intervalMs);
         }
 
         // timer executes these functions on each run
@@ -76,11 +85,12 @@ namespace Doccer_Bot.Services
         private async Task GoogleCalendarResyncTasks()
         {
             // try to sync from calendar
-            var success = _googleCalendarSyncService.SyncFromGoogleCaledar();
+            _googleCalendarSyncService.SyncFromGoogleCaledar();
 
             // modify events embed in reminders to reflect newly synced values
-            if (success)
-                await _scheduleService.SendEvents();
+            // don't care if syncfromgooglecalendar succeeded or not, because we have placeholder
+            // values for the embed
+            await _scheduleService.SendEvents();
         }
 
         private long GetTimeUntilNextInterval(DateTime input, int interval)

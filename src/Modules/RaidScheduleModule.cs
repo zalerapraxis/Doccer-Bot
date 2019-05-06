@@ -9,11 +9,21 @@ using Doccer_Bot.Services;
 
 namespace Doccer_Bot.Modules
 {
-    public class CalendarModule : InteractiveBase
+    public class RaidScheduleModule : InteractiveBase
     {
         // Dependency Injection will fill this value in for us 
         public GoogleCalendarSyncService GoogleCalendarSyncService { get; set; }
         public ScheduleService ScheduleService { get; set; }
+        public RaidEventsService RaidEventsService { get; set; }
+
+        // resync raid schedule timer
+        [Command("timersync")]
+        [Summary("Realigns the timer to 5m intervals")]
+        [RequireUserPermission(GuildPermission.Administrator)]
+        public void ScheduleTimerSync()
+        {
+            RaidEventsService.AdjustTimer();
+        }
 
         // force sync calendar
         [Command("sync", RunMode = RunMode.Async)]
