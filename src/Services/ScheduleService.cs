@@ -47,29 +47,71 @@ namespace Doccer_Bot.Services
             _reminderChannel = _discord.GetChannel(reminderChannelId) as ITextChannel;
         }
 
+        // send or modify messages alerting the user that an event will be starting soon
         public async Task HandleReminders()
         {
             foreach (var calendarEvent in CalendarEvents.Events)
             {
+                // look for pre-existing reminder messages containing this event's title
+                // if we find one, and we don't already have a alertmessage stored,
+                // set it as this event's alert message and use that for modification.
+                // this should only come into play if the hour alert message has been sent and the bot is restarted after
+                var oldReminderMessage = await GetPreviousReminderMessage(calendarEvent.Name);
+                if (oldReminderMessage != null && calendarEvent.AlertMessage == null)
+                    calendarEvent.AlertMessage = oldReminderMessage;
+
                 // get amount of time between the calendarevent start time and the current time
                 var timeDelta = calendarEvent.StartDate - TimezoneAdjustedDateTime.Now.Invoke();
 
-                // if it's less than an hour but more than fifteen minutes
-                if (timeDelta.TotalHours < 1 && timeDelta.TotalMinutes > 15 && calendarEvent.HourAlertSent == false)
+                // if it's less than an hour but more than fifteen minutes, and we haven't sent an alert message, send an alert message
+                if (timeDelta.TotalHours < 1 && timeDelta.TotalMinutes > 15)
                 {
-                    calendarEvent.HourAlertSent = true;
-                    await _reminderChannel.SendMessageAsync($"{calendarEvent.Name} is starting in {(int)timeDelta.TotalMinutes} minutes.");
+                    var messageContents =
+                        $"{calendarEvent.Name} is starting in {(int) timeDelta.TotalMinutes} minutes.";
+
+                    // if there's an alert message already, edit it
+                    if (calendarEvent.AlertMessage != null)
+                    {
+                        await calendarEvent.AlertMessage.ModifyAsync(m => m.Content = messageContents);
+                    }
+                    // if there wasn't an alert message, send a new message
+                    else
+                    {
+                        var msg = await _reminderChannel.SendMessageAsync(messageContents);
+                        calendarEvent.AlertMessage = msg;
+                    }
                 }
 
-                // if it's less than an hour and less or equal to fifteen minutes
-                if (timeDelta.TotalHours < 1 && timeDelta.TotalMinutes <= 15 && calendarEvent.EventStartedAlertSent == false)
+                // if it's less than an hour and less or equal to fifteen minutes, try to modify an existing alert message or send a new one
+                if (timeDelta.TotalHours < 1 && timeDelta.TotalMinutes <= 15)
                 {
-                    calendarEvent.EventStartedAlertSent = true;
-                    await _reminderChannel.SendMessageAsync($"{calendarEvent.Name} is starting shortly. Look for a party finder soon.");
+                    var messageContents = $"{calendarEvent.Name} is starting shortly. Look for a party finder soon.";
+
+                    // if there's an alert message already, edit it
+                    if (calendarEvent.AlertMessage != null)
+                    {
+                        await calendarEvent.AlertMessage.ModifyAsync(m => m.Content = messageContents);
+                    }
+                    // if there wasn't an alert message, send a new message
+                    else
+                    {
+                        var msg = await _reminderChannel.SendMessageAsync(messageContents);
+                        calendarEvent.AlertMessage = msg;
+                    }
+                }
+
+                // if the event has past, delete the alert and null the event's alertmessage
+                // (nulling the alertmessage is a precautionary thing in case we somehow carry
+                // over a previous calendarEvent entry)
+                if (calendarEvent.StartDate < TimezoneAdjustedDateTime.Now.Invoke())
+                {
+                    await calendarEvent.AlertMessage.DeleteAsync();
+                    calendarEvent.AlertMessage = null;
                 }
             }
         }
 
+        // send or modify embed messages listing upcoming events from the raid calendar
         public async Task SendEvents()
         {
             // build embed
@@ -119,6 +161,7 @@ namespace Doccer_Bot.Services
             }
         }
 
+        // put together the events embed & return it to calling method
         private Embed BuildEventsEmbed()
         {
             EmbedBuilder embedBuilder = new EmbedBuilder();
@@ -182,7 +225,7 @@ namespace Doccer_Bot.Services
         }
 
         // searches the _reminderChannel for a message from the bot containing an embed (how else can we filter this - title?)
-        // if it finds one, set that message as the _eventEmbedMessage
+        // if it finds one, return that message to the calling method to be set as _eventEmbedMessage
         private async Task<IUserMessage> GetPreviousEmbed()
         {
             // get all messages in reminder channel
@@ -195,6 +238,26 @@ namespace Doccer_Bot.Services
                     .Where(msg => msg.Embeds.Count > 0)
                     .Where(msg => msg.Embeds.First().Title == "Schedule").ToList().First();
                 return (IUserMessage)embedMsg;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        // searches the _reminderChannel for a message from the bot containing the passed param
+        // (this should be the title of an event for which we are looking for a remindermessage to edit)
+        // if it finds one, return that message to the calling method to be modified
+        private async Task<IUserMessage> GetPreviousReminderMessage(string messageContains)
+        {
+            // get all messages in reminder channel
+            var messages = await _reminderChannel.GetMessagesAsync().FlattenAsync();
+            // try to get a pre-existing message matching messageContains (so {eventtitle})
+            //return the results
+            try
+            {
+                var reminderMsg = messages.Where(msg => msg.Author.Id == _discord.CurrentUser.Id).First(msg => msg.Content.Contains(messageContains));
+                return (IUserMessage) reminderMsg;
             }
             catch
             {
@@ -214,7 +277,6 @@ namespace Doccer_Bot.Services
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
         public string Timezone { get; set; }
-        public bool HourAlertSent { get; set; }
-        public bool EventStartedAlertSent { get; set; }
+        public IUserMessage AlertMessage { get; set; }
     }
 }

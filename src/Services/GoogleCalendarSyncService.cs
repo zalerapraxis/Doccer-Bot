@@ -168,7 +168,7 @@ namespace Doccer_Bot.Services
 
                 foreach (var eventItem in events)
                 {
-                    // api wrapper will always pull times in local time aka eastern
+                    // api wrapper will always pull times in local time aka eastern because it sucks
                     // so just subtract 3 hours to get pacific time
                     eventItem.Start.DateTime = eventItem.Start.DateTime - TimeSpan.FromHours(3);
                     eventItem.End.DateTime = eventItem.End.DateTime - TimeSpan.FromHours(3);
@@ -213,8 +213,7 @@ namespace Doccer_Bot.Services
                                 StartDate = n.StartDate,
                                 EndDate = n.EndDate,
                                 Timezone = o.Timezone,
-                                HourAlertSent = o.HourAlertSent,
-                                EventStartedAlertSent = o.EventStartedAlertSent
+                                AlertMessage = o.AlertMessage
                             });
                         else
                             CalendarEvents.Events.Add(n);

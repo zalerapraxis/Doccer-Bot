@@ -31,7 +31,7 @@ namespace Doccer_Bot.Services
             _logger = logger;
         }
 
-
+        // perform checks to ensure we can sync, set up intervals and begin the timer that fires resync/scheduling events
         public async Task StartTimer()
         {
             // check if calendar syncing is possible, and if the calendarevents list is populated
@@ -39,12 +39,10 @@ namespace Doccer_Bot.Services
             while (true)
             {
                 var isSyncPossible = await _googleCalendarSyncService.CheckIfSyncPossible();
-                if (!isSyncPossible || CalendarEvents.Events.Count > 0)
+                if (isSyncPossible)
                     break;
                 await Task.Delay(1000);
             }
-
-            await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, "Starting schedule/sync timer now."));
 
             // the amount of time between now and the next interval, in this case the next real-world 15 min interval in the hour
             // this value is used only for the first run of the timer, and is not relevant afterwards. it tells the timer to wait
@@ -54,31 +52,42 @@ namespace Doccer_Bot.Services
             // _timerInterval expressed in milliseconds
             var intervalMs = Convert.ToInt32(TimeSpan.FromMinutes(_timerInterval).TotalMilliseconds);
 
+            // the time of the next scheduled timer execution
+            var resultTime = DateTime.Now.AddMilliseconds(timeUntilNextInterval).ToString("HH:mm:ss");
+
+            await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, 
+                $"Starting schedule/sync timer now - Waiting {TimeSpan.FromMilliseconds(timeUntilNextInterval).TotalSeconds} seconds - next tick at {resultTime}."));
+
             // run the timer
             _scheduleTimer = new Timer(delegate { RunTimer(); }, null, timeUntilNextInterval, intervalMs);
         }
 
-        public void AdjustTimer()
+        // resync timer to the nearest interval, return string to command method to reply to user
+        public async Task<string> ResyncTimer()
         {
             // documentation for these lines is in the StartTimer method
             var timeUntilNextInterval = GetTimeUntilNextInterval(TimezoneAdjustedDateTime.Now.Invoke(), _timerInterval);
             var intervalMs = Convert.ToInt32(TimeSpan.FromMinutes(_timerInterval).TotalMilliseconds);
+            var resultTime = DateTime.Now.AddMilliseconds(timeUntilNextInterval).ToString("HH:mm:ss");
+
+            var message =
+                $"Resyncing timer now - Waiting {TimeSpan.FromMilliseconds(timeUntilNextInterval).TotalSeconds} seconds - next tick at {resultTime}.";
+
+            await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, message));
 
             _scheduleTimer.Change(timeUntilNextInterval, intervalMs);
+
+            // pass the message back to the calling method, so that it can inform the user that called the command
+            // that we've sent the resync command
+            return message;
         }
 
         // timer executes these functions on each run
         private async void RunTimer()
         {
             await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, "Timer ticked."));
-            await SchedulingTasks();
-            await GoogleCalendarResyncTasks();
-        }
-
-        // handle all scheduling stuff
-        private async Task SchedulingTasks()
-        {
             await _scheduleService.HandleReminders();
+            await GoogleCalendarResyncTasks();
         }
 
         // handle all calendar syncing stuff
