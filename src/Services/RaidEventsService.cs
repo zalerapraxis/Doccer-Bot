@@ -18,7 +18,7 @@ namespace Doccer_Bot.Services
         private readonly LoggingService _logger;
 
         private Timer _scheduleTimer; // so garbage collection doesn't eat our timer after a bit
-        public int _timerInterval = 5; // how often the timer will run, in minutes
+        public TimeSpan _timerInterval = TimeSpan.FromMinutes(5); // how often the timer will run, in minutes
 
         // DiscordSocketClient, CommandService, and IConfigurationRoot are injected automatically from the IServiceProvider
         public RaidEventsService(IServiceProvider services,
@@ -50,7 +50,7 @@ namespace Doccer_Bot.Services
             var timeUntilNextInterval = GetTimeUntilNextInterval(TimezoneAdjustedDateTime.Now.Invoke(), _timerInterval);
 
             // _timerInterval expressed in milliseconds
-            var intervalMs = Convert.ToInt32(TimeSpan.FromMinutes(_timerInterval).TotalMilliseconds);
+            var intervalMs = Convert.ToInt32(_timerInterval.TotalMilliseconds);
 
             // the time of the next scheduled timer execution
             var resultTime = DateTime.Now.AddMilliseconds(timeUntilNextInterval).ToString("HH:mm:ss");
@@ -67,7 +67,7 @@ namespace Doccer_Bot.Services
         {
             // documentation for these lines is in the StartTimer method
             var timeUntilNextInterval = GetTimeUntilNextInterval(TimezoneAdjustedDateTime.Now.Invoke(), _timerInterval);
-            var intervalMs = Convert.ToInt32(TimeSpan.FromMinutes(_timerInterval).TotalMilliseconds);
+            var intervalMs = Convert.ToInt32(_timerInterval.TotalMilliseconds);
             var resultTime = DateTime.Now.AddMilliseconds(timeUntilNextInterval).ToString("HH:mm:ss");
 
             var message =
@@ -102,17 +102,12 @@ namespace Doccer_Bot.Services
             await _scheduleService.SendEvents();
         }
 
-        private long GetTimeUntilNextInterval(DateTime input, int interval)
+        private long GetTimeUntilNextInterval(DateTime input, TimeSpan interval)
         {
             // returns the time-delta between the input DateTime and the next interval in minutes
             // eg if input is 12:04 and interval is 15, the function will return the time delta between 12:04 and 12:15
-            var timeOfNext = new DateTime(input.Year, input.Month, input.Day, input.Hour, input.Minute, 0).AddMinutes(input.Minute % interval == 0 ? 0 : interval - input.Minute % interval);
+            var timeOfNext = new DateTime((input.Ticks + interval.Ticks - 1) / interval.Ticks * interval.Ticks);
             var timeUntilNext = Convert.ToInt64(timeOfNext.Subtract(input).TotalMilliseconds);
-
-            // if the timeUntilNext var is negative, it we're probably on one of the minute intervals, and it'll error things out
-            // if we return a negative value for the timer, so just return the interval time in milliseconds
-            if (timeUntilNext < 0)
-                return (interval * 60 * 1000);
 
             return timeUntilNext;
         }
