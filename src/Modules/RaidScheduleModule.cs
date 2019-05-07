@@ -17,12 +17,13 @@ namespace Doccer_Bot.Modules
         public RaidEventsService RaidEventsService { get; set; }
 
         // resync raid schedule timer
-        [Command("timersync")]
+        [Command("resync")]
         [Summary("Realigns the timer to 5m intervals")]
         [RequireUserPermission(GuildPermission.Administrator)]
-        public void ScheduleTimerSync()
+        public async Task ScheduleTimerResyncAsync()
         {
-            RaidEventsService.AdjustTimer();
+            var response = await RaidEventsService.ResyncTimer();
+            await ReplyAsync(response);
         }
 
         // force sync calendar
