@@ -202,11 +202,11 @@ namespace Doccer_Bot.Services
                     // match events we just pulled from google to events we have stored already, by name
                     // store new name (this doesn't matter), start and endgames from new list into CalendarEvents
                     // keep existing alert flags
-                    var oldEventsDict = oldEventsList.ToDictionary(n => n.Name);
+                    var oldEventsDict = oldEventsList.ToDictionary(n => n.StartDate);
                     foreach (var n in newEventsList)
                     {
                         CalendarEvent o;
-                        if (oldEventsDict.TryGetValue(n.Name, out o))
+                        if (oldEventsDict.TryGetValue(n.StartDate, out o))
                             CalendarEvents.Events.Add(new CalendarEvent
                             {
                                 Name = n.Name,
