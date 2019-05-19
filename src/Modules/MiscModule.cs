@@ -31,7 +31,7 @@ namespace Doccer_Bot.Modules
             // delete the command message
             await commandMessage.DeleteAsync();
             // wait a second to avoid ratelimiting
-            await Task.Delay(1000);
+            await Task.Delay(1500);
             // make a new message with the contents of the command message
             var responseMsg = await ReplyAsync(messageContents);
             // add our vote emojis to the message
