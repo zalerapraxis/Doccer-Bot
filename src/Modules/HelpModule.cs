@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 namespace Example.Modules
 {
+    [Name("Help")]
     public class HelpModule : ModuleBase<SocketCommandContext>
     {
         private readonly CommandService _service;
@@ -17,15 +18,46 @@ namespace Example.Modules
             _config = config;
         }
 
+        [Command("helpmod")]
+        [Summary("Displays help for a specific module - help {modulename}")]
+        public async Task HelpModuleAsync(string requestedModule)
+        {
+            string prefix = _config["prefix"];
+            var builder = new EmbedBuilder()
+            {
+                Color = Color.Blue,
+                //Description = "These are the commands you can use."
+            };
+
+            var module = _service.Modules.FirstOrDefault(x => x.Name.ToLower() == requestedModule.ToLower());
+
+            foreach (var cmd in module.Commands)
+            {
+                var result = await cmd.CheckPreconditionsAsync(Context);
+                if (result.IsSuccess)
+                {
+                    builder.AddField(x =>
+                    {
+                        x.Name = $"{prefix}{cmd.Aliases.First()}";
+                        x.Value = $"{cmd.Summary}";
+                        x.IsInline = false;
+                    });
+                }
+                    
+            }
+
+            await ReplyAsync("", false, builder.Build());
+        }
+
         [Command("help")]
-        [Summary("Displays this message.")]
+        [Summary("Displays a full list of available commands.")]
         public async Task HelpAsync()
         {
             string prefix = _config["prefix"];
             var builder = new EmbedBuilder()
             {
                 Color = Color.Blue,
-                Description = "These are the commands you can use."
+                //Description = "These are the commands you can use."
             };
             
             foreach (var module in _service.Modules)
