@@ -8,7 +8,7 @@ using Doccer_Bot.Services;
 
 namespace Example.Modules
 {
-    [Name("Moderator")]
+    [Name("Clean")]
     [RequireContext(ContextType.Guild)]
     public class ChatClearingModule : ModuleBase<SocketCommandContext>
     {
@@ -17,7 +17,7 @@ namespace Example.Modules
 
         // clear chatlogs
         [Command("clear")]
-        [Summary("Clears the last x messages in current channel.")]
+        [Summary("Clears the last x messages in current channel - clear (number) - leaving blank will clear last 100 messages")]
         [RequireUserPermission(GuildPermission.Administrator)]
         public async Task ClearChatlogsAsync(int count = 100)
         {
