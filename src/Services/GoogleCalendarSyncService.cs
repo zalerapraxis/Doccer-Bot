@@ -102,10 +102,11 @@ namespace Doccer_Bot.Services
             var syncStatus = CheckIfSyncPossible(server);
             if (syncStatus != CalendarSyncStatus.OK)
             {
-                if (context != null)
-                {
-                    await context.Channel.SendMessageAsync($"Sync failed: {syncStatus}");
-                }
+                if (server == null && context != null)
+                    await context.Channel.SendMessageAsync($"Sync failed: {SyncFailedReason(syncStatus)}");
+                else
+                    await server.ConfigChannel.SendMessageAsync($"Sync failed: {SyncFailedReason(syncStatus)}");
+
                 return false;
             }
                 
@@ -238,6 +239,23 @@ namespace Doccer_Bot.Services
                 return CalendarSyncStatus.ServerUnavailable;
 
             return CalendarSyncStatus.OK;
+        }
+
+        public string SyncFailedReason(CalendarSyncStatus status)
+        {
+            switch (status)
+            {
+                case CalendarSyncStatus.NullCredentials:
+                    return "Google Auth credentials are missing.";
+                case CalendarSyncStatus.NullCalendarId:
+                    return "Calendar ID is missing.";
+                case CalendarSyncStatus.EmptyCalendarId:
+                    return "Calendar ID hasn't been set.";
+                case CalendarSyncStatus.ServerUnavailable:
+                    return "Bot is not a member of this server.";
+            }
+
+            return "Uncaught sync failure reason.";
         }
 
         public async Task SetCalendarId(string calendarId, SocketCommandContext context)
