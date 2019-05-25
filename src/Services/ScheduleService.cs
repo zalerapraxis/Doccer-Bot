@@ -8,6 +8,7 @@ using Discord;
 using Discord.Commands;
 using Discord.Rest;
 using Discord.WebSocket;
+using Doccer_Bot.Models;
 using Example;
 using Google.Apis.Calendar.v3.Data;
 using Microsoft.Extensions.Configuration;
@@ -268,19 +269,5 @@ namespace Doccer_Bot.Services
                 return null;
             }
         }
-    }
-
-    public class CalendarEvents
-    {
-        public static List<CalendarEvent> Events = new List<CalendarEvent>();
-    }
-
-    public class CalendarEvent
-    {
-        public string Name { get; set; }
-        public DateTime StartDate { get; set; }
-        public DateTime EndDate { get; set; }
-        public string Timezone { get; set; }
-        public IUserMessage AlertMessage { get; set; }
     }
 }
