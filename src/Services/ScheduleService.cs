@@ -185,19 +185,23 @@ namespace Doccer_Bot.Services
 
                 // holy fucking formatting batman
                 StringBuilder stringBuilder = new StringBuilder();
-                stringBuilder.Append($"Starts on {calendarEvent.StartDate,0:M/dd} at {calendarEvent.StartDate,0: h:mm tt} {calendarEvent.Timezone} - starts in ");
+                stringBuilder.AppendLine($"Starts on {calendarEvent.StartDate,0:M/dd} at {calendarEvent.StartDate,0: h:mm tt} {calendarEvent.Timezone} and ends at {calendarEvent.EndDate,0: h:mm tt} {calendarEvent.Timezone}");
+                stringBuilder.Append(":watch: Starts in ");
                 // days
                 if (timeDelta.Days == 1)
-                    stringBuilder.Append($" {timeDelta.Days} day,");
+                    stringBuilder.Append($" {timeDelta.Days} day");
                 if (timeDelta.Days > 1)
-                    stringBuilder.Append($" {timeDelta.Days} days,");
+                    stringBuilder.Append($" {timeDelta.Days} days");
+                // comma
+                if (timeDelta.Days >= 1 && (timeDelta.Hours > 0 || timeDelta.Minutes > 0))
+                    stringBuilder.Append(",");
                 // hours
                 if (timeDelta.Hours == 1)
                     stringBuilder.Append($" {timeDelta.Hours} hour");
                 if (timeDelta.Hours > 1)
                     stringBuilder.Append($" {timeDelta.Hours} hours");
                 // and
-                if (timeDelta.Days > 0 || timeDelta.Hours > 0 && timeDelta.Minutes > 0)
+                if (timeDelta.Hours > 0 && timeDelta.Minutes > 0)
                     stringBuilder.Append(" and");
                 // minutes
                 if (timeDelta.Minutes == 1)
