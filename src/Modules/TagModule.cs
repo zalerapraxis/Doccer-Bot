@@ -278,17 +278,22 @@ namespace Doccer_Bot.Modules
         {
             var results = await DatabaseService.GetAllTagsFromDatabase(Context);
 
-            EmbedBuilder embedBuilder = new EmbedBuilder();
-            StringBuilder stringBuilder = new StringBuilder();
-
-            foreach (var result in results)
+            if (results.Any())
             {
-                stringBuilder.AppendLine(result);
+                EmbedBuilder embedBuilder = new EmbedBuilder();
+                StringBuilder stringBuilder = new StringBuilder();
+
+                foreach (var result in results)
+                {
+                    stringBuilder.AppendLine(result);
+                }
+
+                embedBuilder.AddField("Tags", stringBuilder.ToString(), true);
+
+                await ReplyAsync(null, false, embedBuilder.Build());
             }
-
-            embedBuilder.AddField("Tags", stringBuilder.ToString(), true);
-
-            await ReplyAsync(null, false, embedBuilder.Build());
+            else
+                await ReplyAsync("No tags found for this server.");
         }
 
 
@@ -316,7 +321,6 @@ namespace Doccer_Bot.Modules
             }
             else
                 await ReplyAsync("No results found.");
-
         }
 
         // if the user supplies a tagname that doesn't exist, search the database to see if there are
