@@ -40,11 +40,9 @@ namespace Example
 
             await provider.GetRequiredService<StartupService>().StartAsync();       // Start the startup service
 
-            await provider.GetRequiredService<DatabaseService>().Initialize();
+            await provider.GetRequiredService<DatabaseService>().Initialize();      // build database connection details
+            await provider.GetRequiredService<RaidEventsService>().Initialize();    // get discord server credentials & set up channel refs
 
-            await provider.GetRequiredService<GoogleCalendarSyncService>().Initialize();
-            await provider.GetRequiredService<ScheduleService>().Initialize();
-            await provider.GetRequiredService<GoogleCalendarSyncService>().InitialSyncEvent();
             await provider.GetRequiredService<RaidEventsService>().StartTimer();
 
 

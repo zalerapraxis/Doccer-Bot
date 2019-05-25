@@ -24,9 +24,11 @@ namespace Example.Modules
             var channel = Context.Channel as SocketTextChannel;
             var messages = await channel.GetMessagesAsync(count + 1).FlattenAsync();
 
-            if (ScheduleService._eventEmbedMessage != null)
+            var server = Servers.ServerList.Find(x => x.DiscordServer == Context.Guild);
+
+            if (server != null && server.EventEmbedMessage != null)
                 // remove schedule embed message from the messages list, so it doesn't get deleted
-                messages = messages.Where(msg => msg.Id != ScheduleService._eventEmbedMessage.Id);
+                messages = messages.Where(msg => msg.Id != server.EventEmbedMessage.Id);
 
             await channel.DeleteMessagesAsync(messages);
         }

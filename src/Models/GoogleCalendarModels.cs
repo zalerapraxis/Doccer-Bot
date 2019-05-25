@@ -5,11 +5,6 @@ using Discord;
 
 namespace Doccer_Bot.Models
 {
-    public class CalendarEvents
-    {
-        public static List<CalendarEvent> Events = new List<CalendarEvent>();
-    }
-
     public class CalendarEvent
     {
         public string Name { get; set; }

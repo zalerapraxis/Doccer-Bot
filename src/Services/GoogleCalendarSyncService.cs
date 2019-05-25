@@ -28,54 +28,40 @@ namespace Doccer_Bot.Services
 {
     public class GoogleCalendarSyncService
     {
-        private readonly DiscordSocketClient _discord;
         private readonly IConfiguration _config;
         private readonly ScheduleService _scheduleService;
+        private readonly DatabaseService _databaseService;
         private readonly InteractiveService _interactiveService;
         private readonly LoggingService _logger;
 
-        private ITextChannel _configChannel;
-        private UserCredential _credential;
-
         private string _filePath = "client_id.json"; // API Console -> OAuth 2.0 client IDs -> entry -> download button
-        private string _credentialPath = "token";
+        private string _credentialPathPrefix = "tokens";
 
-        private string[] _scopes = new string[] { CalendarService.Scope.CalendarReadonly };
+        private string[] _scopes = { CalendarService.Scope.CalendarReadonly };
         private string _redirectUri = "http://localhost";
-        private string _userId = "user";
-        private string _calendarId; //"9aqhstjsuqq9s12sf9ij01rvi0@group.calendar.google.com"; - assigned via config file
+        private string _userId = "user"; // dummy username for google stuff
 
         // DiscordSocketClient, CommandService, and IConfigurationRoot are injected automatically from the IServiceProvider
-        public GoogleCalendarSyncService(
-            DiscordSocketClient discord,
+        public GoogleCalendarSyncService(            
             IConfigurationRoot config,
             InteractiveService interactiveService,
             ScheduleService scheduleService,
+            DatabaseService datbaseService,
             LoggingService logger)
         {
             _config = config;
-            _discord = discord;
 
             _interactiveService = interactiveService;
             _scheduleService = scheduleService;
+            _databaseService = datbaseService;
             _logger = logger;
         }
 
-        public async Task Initialize()
+        // log in to all servers
+        public async Task Login(Server server)
         {
-            // get calendar id from config
-            _calendarId = _config["calendarId"];
+            var credentialPath = $@"{_credentialPathPrefix}\{server.ServerId}";
 
-            // get id of configuration channel from config
-            var configChannelId = Convert.ToUInt64(_config["configChannelId"]);
-            _configChannel = _discord.GetChannel(configChannelId) as ITextChannel;
-
-            // authenticate
-            await Login();
-        }
-
-        public async Task Login(SocketCommandContext context = null)
-        {
             using (var stream = new FileStream(_filePath, FileMode.Open, FileAccess.Read))
             {
                 // build code flow manager to authenticate token
@@ -83,10 +69,10 @@ namespace Doccer_Bot.Services
                 {
                     ClientSecrets = GoogleClientSecrets.Load(stream).Secrets,
                     Scopes = _scopes,
-                    DataStore = new FileDataStore(_credentialPath, true)
+                    DataStore = new FileDataStore(credentialPath, true)
                 });
 
-                var fileDataStore = new FileDataStore(_credentialPath, true);
+                var fileDataStore = new FileDataStore(credentialPath, true);
                 var token = await fileDataStore.GetAsync<TokenResponse>("token");
 
                 // load token from file 
@@ -96,34 +82,41 @@ namespace Doccer_Bot.Services
                 if (flowManager.ShouldForceTokenRetrieval() || token == null ||
                     token.RefreshToken == null && token.IsExpired(flowManager.Clock))
                 {
-                    await _configChannel.SendMessageAsync("Google Auth credentials missing or expired. Use ```.auth``` to authenticate.");
+                    await server.ConfigChannel.SendMessageAsync("Google Auth credentials missing or expired. Use ```.auth``` to authenticate.");
                     return;
                 }
 
                 // set credentials to use for syncing
-                _credential = new UserCredential(flowManager, _userId, token);
+                server.GoogleUserCredential = new UserCredential(flowManager, _userId, token);
             }
         }
 
         // called whenever .sync command is used, and at first program launch
-        public async Task InitialSyncEvent(SocketCommandContext context = null)
+        public async Task<bool> ManualSync(Server server = null, SocketCommandContext context = null)
         {
-            // if context = null, we're running at launch
-            // if context != null, we're running it via command
+            // if server is null, context is not null - we're calling via command, so get the right server via context
+            if (server == null && context != null)
+                server = Servers.ServerList.Find(x => x.DiscordServer == context.Guild);
 
             // check if we're authenticated and have a calendar id to sync from
-            var isSyncPossible = await CheckIfSyncPossible(context);
-            if (!isSyncPossible)
-                return; // this function handles informing the user - no need to do it here
-
+            var syncStatus = CheckIfSyncPossible(server);
+            if (syncStatus != CalendarSyncStatus.OK)
+            {
+                if (context != null)
+                {
+                    await context.Channel.SendMessageAsync($"Sync failed: {syncStatus}");
+                }
+                return false;
+            }
+                
             // perform the actual sync
-            var success = SyncFromGoogleCaledar(context);
+            var success = SyncFromGoogleCalendar(server);
 
             // handle sync success or failure
             if (success)
             {
                 // send message reporting we've synced calendar events
-                string resultMessage = $":calendar: Synced {CalendarEvents.Events.Count} calendar events.";
+                string resultMessage = $":calendar: Synced {server.Events.Count} calendar events.";
                 if (context != null) // we only want to send a message announcing sync success if the user sent the command
                 {
                     await _interactiveService.ReplyAndDeleteAsync(context, resultMessage);
@@ -141,12 +134,14 @@ namespace Doccer_Bot.Services
             }
 
             // send/modify events embed in reminders to reflect newly synced values
-            await _scheduleService.SendEvents();
+            await _scheduleService.SendEvents(server);
+
+            return true;
         }
 
         // logic for pulling data from api and adding it to CalendarEvents list, returns bool representing
         // if calendar had events or not
-        public bool SyncFromGoogleCaledar(SocketCommandContext context = null)
+        public bool SyncFromGoogleCalendar(Server server)
         {
             // Set the timespan of events to sync
             var min = TimezoneAdjustedDateTime.Now.Invoke();
@@ -154,14 +149,14 @@ namespace Doccer_Bot.Services
 
             // pull events from the specified google calendar
             // string is the calendar id of the calendar to sync with
-            var events = GetCalendarEvents(_credential, _calendarId, min, max);
+            var events = GetCalendarEvents(server.GoogleUserCredential, server.CalendarId, min, max);
 
             // declare events to use for list comparisons
             List<CalendarEvent> oldEventsList = new List<CalendarEvent>();
             List<CalendarEvent> newEventsList = new List<CalendarEvent>();
 
-            oldEventsList.AddRange(CalendarEvents.Events);
-            CalendarEvents.Events.Clear();
+            oldEventsList.AddRange(server.Events);
+            server.Events.Clear();
 
             // if there are events, iterate through and add them to our calendarevents list
             if ((events?.Count() ?? 0) > 0)
@@ -196,7 +191,7 @@ namespace Doccer_Bot.Services
                 {
                     // if calendarevents list (and thus oldeventslist) is empty, we're running for the first time
                     // so just add newEventsList to calendarevents and be done
-                    CalendarEvents.Events.AddRange(newEventsList);
+                    server.Events.AddRange(newEventsList);
                 }
                 else
                 {
@@ -208,7 +203,7 @@ namespace Doccer_Bot.Services
                     {
                         CalendarEvent o;
                         if (oldEventsDict.TryGetValue(n.StartDate, out o))
-                            CalendarEvents.Events.Add(new CalendarEvent
+                            server.Events.Add(new CalendarEvent
                             {
                                 Name = n.Name,
                                 StartDate = n.StartDate,
@@ -217,7 +212,7 @@ namespace Doccer_Bot.Services
                                 AlertMessage = o.AlertMessage
                             });
                         else
-                            CalendarEvents.Events.Add(n);
+                            server.Events.Add(n);
                     }
                 }
                 return true; // calendar had events, and we added them
@@ -227,41 +222,35 @@ namespace Doccer_Bot.Services
 
         // check if we're authorized and if we have a calendar id, and prompt the user to set up either if needed
         // returns true if we're authorized and have a calendar id, returns false if either checks are false
-        public async Task<bool> CheckIfSyncPossible(SocketCommandContext context = null)
+        public CalendarSyncStatus CheckIfSyncPossible(Server server)
         {
             // check if we have credentials for google api
-            if (_credential == null)
-            {
-                string resultMessage = "We're missing Google auth credentials. Use ```.auth``` to set them up.";
+            if (server.GoogleUserCredential == null)
+                return CalendarSyncStatus.NullCredentials;
 
-                if (context != null)
-                    await context.Channel.SendMessageAsync(resultMessage);
-                else
-                    //await _configChannel.SendMessageAsync(resultMessage);
-                    return false;
-            }
+            if (server.CalendarId == "")
+                return CalendarSyncStatus.NullCalendarId;
 
-            // check if we know what calendar we're syncing with
-            if (_calendarId == "")
-            {
-                string resultMessage = "We don't have a calendar set to sync from. Run the command ```.calendar xxxxxxxxxxxxxxxxxxxxxxxxxx@group.calendar.google.com``` to set one." +
-                                       $"{Environment.NewLine} You can find the Calendar ID in your raid calendar's settings, near the bottom.";
-                if (context != null)
-                    await context.Channel.SendMessageAsync(resultMessage);
-                return false;
-            }
+            if (server.CalendarId == null)
+                return CalendarSyncStatus.EmptyCalendarId;
 
-            return true;
+            if (server.DiscordServer != null && ((SocketGuild) server.DiscordServer).IsConnected == false)
+                return CalendarSyncStatus.ServerUnavailable;
+
+            return CalendarSyncStatus.OK;
         }
 
-        public async Task SetCalendarId(string id, SocketCommandContext context)
+        public async Task SetCalendarId(string calendarId, SocketCommandContext context)
         {
-            _calendarId = id;
-            _config["calendarId"] = id;
+            // grab server by id of current guild via context
+            var server = Servers.ServerList.Find(x => x.DiscordServer == context.Guild);
 
-            string resultMessage =
-                ":white_check_mark: Calendar ID set. You can use ```.sync``` to sync up your calendar now.";
-            await _interactiveService.ReplyAndDeleteAsync(context, resultMessage, false, null, TimeSpan.FromSeconds(10));
+            // and its index in the ServerList so we can assign to the ServerList directly
+            var serverIndex = Servers.ServerList.IndexOf(server);
+            Servers.ServerList[serverIndex].CalendarId = calendarId;
+
+            // and update the database as well
+            await _databaseService.EditServerInfo(server.ServerId, "calendar_id", calendarId);
         }
 
         // called by .auth command - build auth code & send to user
@@ -294,11 +283,16 @@ namespace Doccer_Bot.Services
             }
         }
 
-        // called by auth command - receive auth code, exchange it for token, log in
+        // called by .auth command - receive auth code, exchange it for token, log in
         public async Task GetTokenAndLogin(string userInput, SocketCommandContext context)
         {
             // split auth code from the url that the user passes to this function
             var authCode = userInput.Split('=', '&')[1];
+
+            // grab server by id of current guild via context
+            var server = Servers.ServerList.Find(x => x.DiscordServer == context.Guild);
+
+            var credentialPath = $@"{_credentialPathPrefix}\{server.ServerId}";
 
             // build code flow manager to get token
             using (var stream = new FileStream(_filePath, FileMode.Open, FileAccess.Read))
@@ -313,17 +307,18 @@ namespace Doccer_Bot.Services
                 var token = flowManager.ExchangeCodeForTokenAsync(_userId, authCode, _redirectUri, CancellationToken.None).Result;
 
                 // save user credentials
-                var fileDataStore = new FileDataStore(_credentialPath, true);
+                var fileDataStore = new FileDataStore(credentialPath, true);
                 await fileDataStore.StoreAsync("token", token);
             }
 
             string resultMessage =
-                ":white_check_mark: Authorization successful, logging in. You should be able to use ```.sync``` to manually sync your calendar now.";
+                ":white_check_mark: Authorization successful. Get your calendar ID and run ```.calendarid {id}``` to finish setup." +
+                "Your calendar ID can be found by going to your raid calendar's settings, and scrolling to the \"Integrate Calendar\" section.";
             await _interactiveService.ReplyAndDeleteAsync(context, resultMessage, false, null,
-                TimeSpan.FromSeconds(10));
+                TimeSpan.FromMinutes(1));
 
             // log in using our new token
-            await Login();
+            await Login(server);
         }
 
         private IEnumerable<Google.Apis.Calendar.v3.Data.Event> GetCalendarEvents(ICredential credential, string calendarId, DateTime min, DateTime max, int maxResults = 10)
@@ -331,7 +326,7 @@ namespace Doccer_Bot.Services
             var service = new CalendarService(new BaseClientService.Initializer()
             {
                 HttpClientInitializer = credential,
-                ApplicationName = "Doccer Bot GCal sync",
+                ApplicationName = "Doccer Bot calendar sync",
             });
 
             EventsResource.ListRequest request = service.Events.List(calendarId);

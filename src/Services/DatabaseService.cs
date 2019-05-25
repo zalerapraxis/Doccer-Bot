@@ -33,6 +33,55 @@ namespace Doccer_Bot.Services
             _mongodbName = dbName;
         }
 
+        public async Task<List<Server>> GetServersInfo()
+        {
+            var database = _mongodb.GetDatabase(_mongodbName);
+            var serverCollection = database.GetCollection<Server>("servers");
+
+            var servers = await serverCollection.Find(new BsonDocument()).ToListAsync();
+
+            return servers;
+        }
+
+        public async Task<bool> AddServerInfo(Server newServer)
+        {
+            var database = _mongodb.GetDatabase(_mongodbName);
+            var serverCollection = database.GetCollection<Server>("servers");
+
+            await serverCollection.InsertOneAsync(newServer);
+
+            return true;
+        }
+
+        public async Task<bool> RemoveServerInfo(Server server)
+        {
+            var database = _mongodb.GetDatabase(_mongodbName);
+            var serverCollection = database.GetCollection<Server>("servers");
+
+            var filter = Builders<Server>.Filter.Eq("server_id", server.ServerId);
+
+            await serverCollection.DeleteOneAsync(filter);
+
+            return true;
+        }
+
+        public async Task<bool> EditServerInfo(string serverId, string key, string value)
+        {
+            var database = _mongodb.GetDatabase(_mongodbName);
+            var serverCollection = database.GetCollection<Server>("servers");
+
+            var filter = Builders<Server>.Filter.Eq("server_id", serverId);
+            // do we need to check if server info exists?
+
+            // stage change
+            var update = Builders<Server>.Update.Set(key, value);
+
+            // commit change
+            await serverCollection.UpdateOneAsync(filter, update);
+
+            return true;
+        }
+
         // called via .meme command and via textmemeservice
         public async Task<List<TextMeme>> GetTextMemes()
         {
@@ -56,7 +105,7 @@ namespace Doccer_Bot.Services
 
             // filter by name, search for passed tag name, get first tag matching filter
             //var filter = Builders<Tag>.Filter.Eq("name", tagName);
-            var filter = BuildFilterEq(context, "name", tagName);
+            var filter = BuildTagFilterEq(context, "name", tagName);
 
             var tagExists = tagCollection.FindAsync(filter).Result.Any();
 
@@ -72,7 +121,7 @@ namespace Doccer_Bot.Services
                 var update = Builders<Tag>.Update.Set("uses", tag.Uses);
 
                 // commit uses change to tag
-                tagCollection.UpdateOne(filter, update);
+                await tagCollection.UpdateOneAsync(filter, update);
 
                 // return tag to calling function
                 return tag.Text;
@@ -89,7 +138,7 @@ namespace Doccer_Bot.Services
 
             FilterDefinition<Tag> filter;
 
-            filter = BuildFilterEmpty(context);
+            filter = BuildTagFilterEmpty(context);
             
             // use whichever filter to collect results from database as list of tags
             var dbResponse = await tagCollection.FindAsync(filter).Result.ToListAsync();
@@ -118,7 +167,7 @@ namespace Doccer_Bot.Services
 
             FilterDefinition<Tag> filter;
 
-            filter = BuildFilterRegex(context, "name", $"({searchTerm})");
+            filter = BuildTagFilterRegex(context, "name", $"({searchTerm})");
 
             // use whichever filter to collect results from database as list of tags
             var dbResponse = await tagCollection.FindAsync(filter).Result.ToListAsync();
@@ -144,9 +193,9 @@ namespace Doccer_Bot.Services
             FilterDefinition<Tag> filter;
 
             if (user != null)
-                filter = BuildFilterEq(context, "author_id", (long) user.Id);
+                filter = BuildTagFilterEq(context, "author_id", (long) user.Id);
             else
-                filter = BuildFilterEq(context, "author_id", (long) context.User.Id);
+                filter = BuildTagFilterEq(context, "author_id", (long) context.User.Id);
 
             // use whichever filter to collect results from database as list of tags
             var dbResponse = await tagCollection.FindAsync(filter).Result.ToListAsync();
@@ -168,7 +217,7 @@ namespace Doccer_Bot.Services
             var tagCollection = database.GetCollection<Tag>("tags");
 
             // filter by name, search for passed tag name, get first tag matching filter
-            var filter = BuildFilterEq(context, "name", tagName);
+            var filter = BuildTagFilterEq(context, "name", tagName);
             var tagExists = tagCollection.FindAsync(filter).Result.Any();
 
             if (tagExists)
@@ -198,7 +247,7 @@ namespace Doccer_Bot.Services
             var database = _mongodb.GetDatabase(_mongodbName);
             var tagCollection = database.GetCollection<Tag>("tags");
 
-            var filter = BuildFilterEq(context, "name", newTag.Name);
+            var filter = BuildTagFilterEq(context, "name", newTag.Name);
             var tagExists = tagCollection.FindAsync(filter).Result.Any();
 
             if (!tagExists)
@@ -219,7 +268,7 @@ namespace Doccer_Bot.Services
             var database = _mongodb.GetDatabase(_mongodbName);
             var tagCollection = database.GetCollection<Tag>("tags");
 
-            var filter = BuildFilterEq(context, "name", tagName);
+            var filter = BuildTagFilterEq(context, "name", tagName);
             var tagExists = tagCollection.FindAsync(filter).Result.Any();
 
             if (tagExists)
@@ -228,7 +277,7 @@ namespace Doccer_Bot.Services
                 var tag = await tagCollection.FindAsync(filter).Result.FirstOrDefaultAsync();
                 
                 // check if calling user has permission to modify the tag
-                if (CheckUserPermission(context, tag))
+                if (CheckTagUserPermission(context, tag))
                 {
                     await tagCollection.DeleteOneAsync(filter);
                     return 2; // success, tag was deleted 
@@ -246,7 +295,7 @@ namespace Doccer_Bot.Services
             var database = _mongodb.GetDatabase(_mongodbName);
             var tagCollection = database.GetCollection<Tag>("tags");
 
-            var filter = BuildFilterEq(context, "name", tagName);
+            var filter = BuildTagFilterEq(context, "name", tagName);
             var tagExists = tagCollection.FindAsync(filter).Result.Any();
 
             if (tagExists)
@@ -255,7 +304,7 @@ namespace Doccer_Bot.Services
                 var tag = await tagCollection.FindAsync(filter).Result.FirstOrDefaultAsync();
 
                 // check if calling user has permission to modify the tag
-                if (CheckUserPermission(context, tag))
+                if (CheckTagUserPermission(context, tag))
                 {
                     // stage change to tag
                     var update = Builders<Tag>.Update.Set(key, value);
@@ -272,9 +321,9 @@ namespace Doccer_Bot.Services
             return 0; // 0 = failed, tag does not exist
         }
 
-        // returns a built filter that matches any documents that are accessible by the current server
+        // returns a built filter that matches any tags that are accessible by the current server
         // this function is for eq(key, value) filters
-        private FilterDefinition<Tag> BuildFilterEq(SocketCommandContext context, string key, dynamic value)
+        private FilterDefinition<Tag> BuildTagFilterEq(SocketCommandContext context, string key, dynamic value)
         {
             // filter where following conditions are satisfied:
             // both = true: 
@@ -296,9 +345,9 @@ namespace Doccer_Bot.Services
             return filter;
         }
 
-        // returns a built filter that matches any documents that are accessible by the current server
+        // returns a built filter that matches any tags that are accessible by the current server
         // this function is for regex (key, value) filters
-        private FilterDefinition<Tag> BuildFilterRegex(SocketCommandContext context, string key, dynamic value)
+        private FilterDefinition<Tag> BuildTagFilterRegex(SocketCommandContext context, string key, dynamic value)
         {
             // filter where following conditions are satisfied:
             // both = true: 
@@ -320,9 +369,9 @@ namespace Doccer_Bot.Services
             return filter;
         }
 
-        // returns a built filter that matches any documents that are accessible by the current server
+        // returns a built filter that matches any tags that are accessible by the current server
         // this function is for empty filters (return everything)
-        private FilterDefinition<Tag> BuildFilterEmpty(SocketCommandContext context)
+        private FilterDefinition<Tag> BuildTagFilterEmpty(SocketCommandContext context)
         {
             // filter where following conditions are satisfied:
             // both = true: 
@@ -345,7 +394,7 @@ namespace Doccer_Bot.Services
         }
 
         // check if the calling user is either the author of the passed tag or if the calling user is an administrator
-        private bool CheckUserPermission(SocketCommandContext context, Tag tag)
+        private bool CheckTagUserPermission(SocketCommandContext context, Tag tag)
         {
             var author = (ulong)tag.AuthorId;
             // get calling user in context of calling guild
