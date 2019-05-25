@@ -67,7 +67,7 @@ namespace Doccer_Bot.Modules
 
             // config channel
             await ReplyAndDeleteAsync($"Tag the channel you want **configuration** messages sent to (for example, {MentionUtils.MentionChannel(Context.Channel.Id)}).", false, null, TimeSpan.FromMinutes(1));
-            var response = await NextMessageAsync(true, true, TimeSpan.FromSeconds(10));
+            var response = await NextMessageAsync(true, true, TimeSpan.FromSeconds(30));
             if (response != null)
                 if (response.MentionedChannels.FirstOrDefault() != null)
                     configChannelId = MentionUtils.ParseChannel(response.Content);
@@ -85,7 +85,7 @@ namespace Doccer_Bot.Modules
 
             // reminder channel
             await ReplyAndDeleteAsync($"Tag the channel you want **reminders & the schedule** sent to (for example, {MentionUtils.MentionChannel(Context.Channel.Id)}).", false, null, TimeSpan.FromMinutes(1));
-            response = await NextMessageAsync(true, true, TimeSpan.FromSeconds(10));
+            response = await NextMessageAsync(true, true, TimeSpan.FromSeconds(30));
             if (response != null)
                 if (response.MentionedChannels.FirstOrDefault() != null)
                     reminderChannelId = MentionUtils.ParseChannel(response.Content);
