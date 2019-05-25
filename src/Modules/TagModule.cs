@@ -7,6 +7,7 @@ using Discord;
 using Discord.Addons.Interactive;
 using Discord.Commands;
 using Discord.WebSocket;
+using Doccer_Bot.Modules.Common;
 using Doccer_Bot.Services;
 
 namespace Doccer_Bot.Modules
@@ -20,8 +21,9 @@ namespace Doccer_Bot.Modules
         private Dictionary<IUser, IUserMessage> _dictFindTagUserEmbedPairs = new Dictionary<IUser, IUserMessage>();
         
 
-        [Summary("Get a tag by name - tag {name}")]
         [Command("tag", RunMode = RunMode.Async)]
+        [Summary("Get a tag by name")]
+        [Example("tag {name}")]
         public async Task TagGetCommandAsync(string tagName)
         {
             var response = await DatabaseService.GetTagContentsFromDatabase(Context, tagName);
@@ -37,9 +39,10 @@ namespace Doccer_Bot.Modules
         }
 
 
-        [Summary("Add a new tag - tag add {name} {content}")]
         [Command("tag add", RunMode = RunMode.Async)]
+        [Summary("Add a new tag")]
         [Alias("tag create")]
+        [Example("tag add {name} {content}")]
         public async Task TagAddCommandAsync(string tagName, [Remainder] string content)
         {
             var success = await DatabaseService.AddTagToDatabase(Context, tagName, content);
@@ -50,8 +53,9 @@ namespace Doccer_Bot.Modules
                 await ReplyAsync("Couldn't add tag - a tag with this name already exists.");
         }
 
-        [Summary("Make a new tag interactively - tag make")]
+
         [Command("tag make", RunMode = RunMode.Async)]
+        [Summary("Make a new tag interactively")]
         public async Task TagMakeCommandAsync(string tagName = null)
         {
             await ReplyAsync("What do you want to name your tag?");
@@ -79,9 +83,10 @@ namespace Doccer_Bot.Modules
         }
 
 
-        [Summary("Remove a tag - tag remove {name}")]
         [Command("tag remove", RunMode = RunMode.Async)]
+        [Summary("Remove a tag")]
         [Alias("tag delete")]
+        [Example("tag remove {name}")]
         public async Task TagRemoveCommandAsync(string tagName)
         {
             var result = await DatabaseService.RemoveTagFromDatabase(Context, tagName);
@@ -98,8 +103,9 @@ namespace Doccer_Bot.Modules
         }
 
 
-        [Summary("Edit a tag's contents - tag edit {name} {content}")]
         [Command("tag edit", RunMode = RunMode.Async)]
+        [Summary("Edit a tag's contents")]
+        [Example("tag edit {name} {content}")]
         public async Task TagEditCommandAsync(string tagName, [Remainder] string newContent)
         {
             var result = await DatabaseService.EditTagInDatabase(Context, tagName, "text", newContent);
@@ -117,8 +123,9 @@ namespace Doccer_Bot.Modules
         }
 
 
-        [Summary("Rename a tag - tag rename {name} {newName}")]
         [Command("tag rename", RunMode = RunMode.Async)]
+        [Summary("Rename a tag")]
+        [Example("tag rename {name} {newName}")]
         public async Task TagRenameCommandAsync(string tagName, string newName)
         {
             var result = await DatabaseService.EditTagInDatabase(Context, tagName, "name", newName);
@@ -135,8 +142,9 @@ namespace Doccer_Bot.Modules
         }
 
 
-        [Summary("Describe a tag - tag describe {description} - this is optional and used for tag lists & info")]
         [Command("tag describe", RunMode = RunMode.Async)]
+        [Summary("Describe a tag - descriptions are optional and used for tag lists & info")]
+        [Example("tag describe {description}")]
         public async Task TagDescribeCommandAsync(string tagName, [Remainder] string description)
         {
             var result = await DatabaseService.EditTagInDatabase(Context, tagName, "description", description);
@@ -153,8 +161,9 @@ namespace Doccer_Bot.Modules
         }
 
 
-        [Summary("Toggle the tag's global status. Global tags can be used on other servers - tag global {name} {true/false}")]
         [Command("tag global", RunMode = RunMode.Async)]
+        [Summary("Toggle the tag's global status. Global tags can be used on other servers")]
+        [Example("tag global {name} {true/false}")]
         public async Task TagGlobalCommandAsync(string tagName, string flag)
         {
             bool global;
@@ -184,8 +193,9 @@ namespace Doccer_Bot.Modules
         }
 
 
-        [Summary("Get list of tags by you or someone else - tag list (@username) - username is optional")]
         [Command("tag list", RunMode = RunMode.Async)]
+        [Summary("Get a list of tags by you or someone else")]
+        [Example("tag list (@username) - username is optional")]
         public async Task TagGetByUserCommandAsync(IUser user = null)
         {
             var results = await DatabaseService.GetTagsByUserFromDatabase(Context, user);
@@ -218,8 +228,9 @@ namespace Doccer_Bot.Modules
         }
 
 
-        [Summary("Get tag info - tag info {name}")]
         [Command("tag info", RunMode = RunMode.Async)]
+        [Summary("Get tag info")]
+        [Example("tag info {name}")]
         public async Task TagGetInfoCommandAsync(string tagName)
         {
             var tag = await DatabaseService.GetTagInfoFromDatabase(Context, tagName);
@@ -260,8 +271,8 @@ namespace Doccer_Bot.Modules
         }
 
 
-        [Summary("Get list of all tags, with option to search - tag list (searchterm)")] 
         [Command("tag all", RunMode = RunMode.Async)]
+        [Summary("Get list of all tags, with option to search - tag list (searchterm)")]
         [Alias("tags")]
         public async Task TagGetAllCommandAsync(string search = null)
         {
@@ -281,9 +292,10 @@ namespace Doccer_Bot.Modules
         }
 
 
-        [Summary("Search for a tag - tag search {searchterm}")]
         [Command("tag search", RunMode = RunMode.Async)]
+        [Summary("Search for a tag - tag search {searchterm}")]
         [Alias("tag find")]
+        [Example("tag search {searchterm}")]
         public async Task TagSearchCommandAsync(string search)
         {
             var results = await DatabaseService.SearchTagsInDatabase(Context, search);

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Discord;
 using Discord.Addons.Interactive;
 using Discord.Commands;
+using Doccer_Bot.Modules.Common;
 using Doccer_Bot.Services;
 
 namespace Doccer_Bot.Modules
@@ -40,7 +41,8 @@ namespace Doccer_Bot.Modules
 
         // set calendar id
         [Command("calendarid")]
-        [Summary("Sets calendar ID to the input - calendarid {id}")]
+        [Summary("Sets calendar ID to the input")]
+        [Example("calendarid {id}")]
         [RequireUserPermission(GuildPermission.Administrator)]
         public async Task CalendarIdSetAsync([Remainder] string input)
         {
