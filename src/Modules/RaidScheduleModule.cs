@@ -9,6 +9,7 @@ using Doccer_Bot.Services;
 
 namespace Doccer_Bot.Modules
 {
+    [Name("RaidSchedule")]
     public class RaidScheduleModule : InteractiveBase
     {
         // Dependency Injection will fill this value in for us 
@@ -18,7 +19,7 @@ namespace Doccer_Bot.Modules
 
         // resync raid schedule timer
         [Command("resync")]
-        [Summary("Realigns the timer to 5m intervals")]
+        [Summary("Realigns the timer to nearest time interval")]
         [RequireUserPermission(GuildPermission.Administrator)]
         public async Task ScheduleTimerResyncAsync()
         {
@@ -37,7 +38,7 @@ namespace Doccer_Bot.Modules
 
         // set calendar id
         [Command("calendarid")]
-        [Summary("Sets calendar ID to the input")]
+        [Summary("Sets calendar ID to the input - calendarid {id}")]
         [RequireUserPermission(GuildPermission.Administrator)]
         public async Task CalendarIdSetAsync([Remainder] string input)
         {

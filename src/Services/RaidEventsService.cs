@@ -71,7 +71,7 @@ namespace Doccer_Bot.Services
             var resultTime = DateTime.Now.AddMilliseconds(timeUntilNextInterval).ToString("HH:mm:ss");
 
             var message =
-                $"Resyncing timer now - Waiting {TimeSpan.FromMilliseconds(timeUntilNextInterval).TotalSeconds} seconds - next tick at {resultTime}.";
+                $"Resyncing timer now - waiting {TimeSpan.FromMilliseconds(timeUntilNextInterval).TotalSeconds} seconds - next tick at {resultTime}.";
 
             await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, message));
 
