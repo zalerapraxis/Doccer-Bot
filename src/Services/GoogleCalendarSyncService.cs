@@ -60,7 +60,7 @@ namespace Doccer_Bot.Services
         // log in to all servers
         public async Task Login(Server server)
         {
-            var credentialPath = $@"{_credentialPathPrefix}\{server.ServerId}";
+            var credentialPath = $@"{_credentialPathPrefix}/{server.ServerId}";
 
             using (var stream = new FileStream(_filePath, FileMode.Open, FileAccess.Read))
             {
@@ -310,7 +310,7 @@ namespace Doccer_Bot.Services
             // grab server by id of current guild via context
             var server = Servers.ServerList.Find(x => x.DiscordServer == context.Guild);
 
-            var credentialPath = $@"{_credentialPathPrefix}\{server.ServerId}";
+            var credentialPath = $@"{_credentialPathPrefix}/{server.ServerId}";
 
             // build code flow manager to get token
             using (var stream = new FileStream(_filePath, FileMode.Open, FileAccess.Read))
