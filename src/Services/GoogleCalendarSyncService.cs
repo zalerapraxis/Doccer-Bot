@@ -235,7 +235,8 @@ namespace Doccer_Bot.Services
             if (server.CalendarId == null)
                 return CalendarSyncStatus.EmptyCalendarId;
 
-            if (server.DiscordServer != null && ((SocketGuild) server.DiscordServer).IsConnected == false)
+            // if server object is assigned, the bot is connected, but the bot is not connected to this server, we're probably kicked
+            if (server.DiscordServer != null && server.DiscordServer.Available && ((SocketGuild) server.DiscordServer).IsConnected == false)
                 return CalendarSyncStatus.ServerUnavailable;
 
             return CalendarSyncStatus.OK;
@@ -364,7 +365,7 @@ namespace Doccer_Bot.Services
 
     public static class TimezoneAdjustedDateTime
     {
-        // we are working in eastern time and we want pacific time, but we want to have easy access
+        // the bot runs in eastern time and we want pacific time, and we want to have easy access
         // to the current time (in pacific) - so return the current time minus three hours
         public static Func<DateTime> Now = () => DateTime.Now - TimeSpan.FromHours(3);
     }
