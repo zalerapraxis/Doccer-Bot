@@ -12,10 +12,13 @@ namespace Doccer_Bot.Services
 {
     public class DatabaseService
     {
+        // should we move this to its own service?
+        public List<IUser> _sudoersList = new List<IUser>();
+
         private readonly IConfigurationRoot _config;
         private MongoClient _mongodb;
         private string _mongodbName;
-
+        
         public DatabaseService(IConfigurationRoot config)
         {
             _config = config;
@@ -32,6 +35,10 @@ namespace Doccer_Bot.Services
             _mongodb = new MongoClient($"mongodb://{username}:{password}@{host}/?authSource={dbName}");
             _mongodbName = dbName;
         }
+
+        //
+        // =================== SCHEDULE SERVERS ===================
+        //
 
         public async Task<List<Server>> GetServersInfo()
         {
@@ -82,6 +89,10 @@ namespace Doccer_Bot.Services
             return true;
         }
 
+        //
+        // =================== TEXTMEMES ===================
+        //
+
         // called via .meme command and via textmemeservice
         public async Task<List<TextMeme>> GetTextMemes()
         {
@@ -97,6 +108,10 @@ namespace Doccer_Bot.Services
             return textMemes;
         }
 
+        //
+        // =================== TAGS ===================
+        //
+
         // called via .tag {name} command
         public async Task<string> GetTagContentsFromDatabase(SocketCommandContext context, string tagName)
         {
@@ -104,7 +119,6 @@ namespace Doccer_Bot.Services
             var tagCollection = database.GetCollection<Tag>("tags");
 
             // filter by name, search for passed tag name, get first tag matching filter
-            //var filter = Builders<Tag>.Filter.Eq("name", tagName);
             var filter = BuildTagFilterEq(context, "name", tagName);
 
             var tagExists = tagCollection.FindAsync(filter).Result.Any();
@@ -325,22 +339,32 @@ namespace Doccer_Bot.Services
         // this function is for eq(key, value) filters
         private FilterDefinition<Tag> BuildTagFilterEq(SocketCommandContext context, string key, dynamic value)
         {
-            // filter where following conditions are satisfied:
-            // both = true: 
-            //     either are true:
-            //         global is true
-            //         server_id is the calling server id
-            //     key:value pair matches document in database
-
+            FilterDefinition<Tag> filter;
             var builder = Builders<Tag>.Filter;
 
-            var filter = builder.And(
-                builder.Or(
-                    builder.Eq("global", true),
-                    builder.Eq("server_id", (long) context.Guild.Id)
-                ),
-                builder.Eq(key, value)
-            );
+            // if sudo mode enabled & calling user is in sudoers list, return all matching tags
+            // else, return only global tags and tags made in this server
+            if (_sudoersList.Contains(context.User) && UserIsSudoer(context))
+            {
+                filter = builder.Eq(key, value);
+            }
+            else
+            {
+                // filter where following conditions are satisfied:
+                // both = true: 
+                //     either are true:
+                //         global is true
+                //         server_id is the calling server id
+                //     key:value pair matches document in database
+
+                filter = builder.And(
+                    builder.Or(
+                        builder.Eq("global", true),
+                        builder.Eq("server_id", (long)context.Guild.Id)
+                    ),
+                    builder.Eq(key, value)
+                );
+            }
 
             return filter;
         }
@@ -349,22 +373,32 @@ namespace Doccer_Bot.Services
         // this function is for regex (key, value) filters
         private FilterDefinition<Tag> BuildTagFilterRegex(SocketCommandContext context, string key, dynamic value)
         {
-            // filter where following conditions are satisfied:
-            // both = true: 
-            //     either are true:
-            //         global is true
-            //         server_id is the calling server id
-            //     key:value pair matches document in database
-
+            FilterDefinition<Tag> filter;
             var builder = Builders<Tag>.Filter;
 
-            var filter = builder.And(
-                builder.Or(
-                    builder.Eq("global", true),
-                    builder.Eq("server_id", (long)context.Guild.Id)
-                ),
-                builder.Regex(key, value)
-            );
+            // if sudo mode enabled & calling user is in sudoers list, return all matching tags
+            // else, return only global tags and tags made in this server
+            if (_sudoersList.Contains(context.User) && UserIsSudoer(context))
+            {
+                filter = builder.Regex(key, value);
+            }
+            else
+            {
+                // filter where following conditions are satisfied:
+                // both = true: 
+                //     either are true:
+                //         global is true
+                //         server_id is the calling server id
+                //     key:value pair matches document in database
+
+                filter = builder.And(
+                    builder.Or(
+                        builder.Eq("global", true),
+                        builder.Eq("server_id", (long)context.Guild.Id)
+                    ),
+                    builder.Regex(key, value)
+                );
+            }
 
             return filter;
         }
@@ -373,22 +407,32 @@ namespace Doccer_Bot.Services
         // this function is for empty filters (return everything)
         private FilterDefinition<Tag> BuildTagFilterEmpty(SocketCommandContext context)
         {
-            // filter where following conditions are satisfied:
-            // both = true: 
-            //     either are true:
-            //         global is true
-            //         server_id is the calling server id
-            //     empty (get all documents)
-
+            FilterDefinition<Tag> filter;
             var builder = Builders<Tag>.Filter;
 
-            var filter = builder.And(
-                builder.Or(
-                    builder.Eq("global", true),
-                    builder.Eq("server_id", (long)context.Guild.Id)
-                ),
-                builder.Empty
-            );
+            // if sudo mode enabled & calling user is in sudoers list, return all matching tags
+            // else, return only global tags and tags made in this server
+            if (_sudoersList.Contains(context.User) && UserIsSudoer(context))
+            {
+                filter = builder.Empty;
+            }
+            else
+            {
+                // filter where following conditions are satisfied:
+                // both = true: 
+                //     either are true:
+                //         global is true
+                //         server_id is the calling server id
+                //     empty (get all documents)
+
+                filter = builder.And(
+                    builder.Or(
+                        builder.Eq("global", true),
+                        builder.Eq("server_id", (long) context.Guild.Id)
+                    ),
+                    builder.Empty
+                );
+            }
 
             return filter;
         }
@@ -405,6 +449,19 @@ namespace Doccer_Bot.Services
                 return true;
             }
             return false;
+        }
+
+        public bool UserIsSudoer(SocketCommandContext context)
+        {
+            var database = _mongodb.GetDatabase(_mongodbName);
+            var sudoersCollection = database.GetCollection<SudoUser>("sudoers");
+
+            var builder = Builders<SudoUser>.Filter;
+            FilterDefinition<SudoUser> filter = builder.Eq("user_id", context.User.Id.ToString());
+
+            var userInSudoers = sudoersCollection.FindAsync(filter).Result.Any();
+
+            return userInSudoers;
         }
     }
 }

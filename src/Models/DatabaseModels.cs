@@ -90,6 +90,18 @@ namespace Doccer_Bot.Services
         public UserCredential GoogleUserCredential { get; set; }
     }
 
+    public class SudoUser
+    {
+        [BsonId]
+        public ObjectId Id { get; set; }
+
+        [BsonElement("username")]
+        public string Username { get; set; }
+
+        [BsonElement("user_id")]
+        public string userId { get; set; }
+    }
+
     // internal list of servers, used for global access - not actually stored in the database
     public class Servers
     {
