@@ -269,7 +269,7 @@ namespace Doccer_Bot.Services
             Servers.ServerList[serverIndex].CalendarId = calendarId;
 
             // and update the database as well
-            await _databaseService.EditServerInfo(server.ServerId, "calendar_id", calendarId);
+            await _databaseService.DatabaseServers.EditServerInfo(server.ServerId, "calendar_id", calendarId);
         }
 
         // called by .auth command - build auth code & send to user

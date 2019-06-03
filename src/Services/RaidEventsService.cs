@@ -137,7 +137,7 @@ namespace Doccer_Bot.Services
             foreach (var server in serversToRemove)
             {
                 Servers.ServerList.RemoveAll(x => x.ServerId == server.ServerId);
-                await _databaseService.RemoveServerInfo(server);
+                await _databaseService.DatabaseServers.RemoveServerInfo(server);
             }
         }
 
@@ -155,7 +155,7 @@ namespace Doccer_Bot.Services
         public async Task GetServersInfoFromDatabase()
         {
             // get server info from database
-            var servers = await _databaseService.GetServersInfo();
+            var servers = await _databaseService.DatabaseServers.GetServersInfo();
 
             foreach (var server in servers)
             {

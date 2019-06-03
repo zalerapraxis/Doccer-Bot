@@ -21,16 +21,16 @@ namespace Doccer_Bot.Modules
         public async Task SudoToggleCommandAsync()
         {
             var currentUser = Context.User as IUser;
-            if (DatabaseService.UserIsSudoer(Context))
+            if (DatabaseService.DatabaseTags.UserIsSudoer(Context))
             {
-                if (DatabaseService._sudoersList.Contains(currentUser))
+                if (DatabaseService.DatabaseTags._sudoersList.Contains(currentUser))
                 {
-                    DatabaseService._sudoersList.Remove(currentUser);
+                    DatabaseService.DatabaseTags._sudoersList.Remove(currentUser);
                     await ReplyAsync("Disabled your Sudo mode.");
                 }
                 else
                 {
-                    DatabaseService._sudoersList.Add(currentUser);
+                    DatabaseService.DatabaseTags._sudoersList.Add(currentUser);
                     await ReplyAsync("Enabled your Sudo mode.");
                 }
             }

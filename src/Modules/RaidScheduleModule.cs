@@ -110,7 +110,7 @@ namespace Doccer_Bot.Modules
             };
 
             // add this server's data to the database
-            await DatabaseService.AddServerInfo(newServer);
+            await DatabaseService.DatabaseServers.AddServerInfo(newServer);
 
             // initialize this server
             RaidEventsService.SetServerDiscordObjects(newServer);

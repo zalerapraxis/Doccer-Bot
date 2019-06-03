@@ -26,7 +26,7 @@ namespace Doccer_Bot.Modules
         [Example("tag {name}")]
         public async Task TagGetCommandAsync(string tagName)
         {
-            var response = await DatabaseService.GetTagContentsFromDatabase(Context, tagName);
+            var response = await DatabaseService.DatabaseTags.GetTagContentsFromDatabase(Context, tagName);
 
             // if we found a response, use it
             if (response != null)
@@ -45,7 +45,7 @@ namespace Doccer_Bot.Modules
         [Example("tag add {name} {content}")]
         public async Task TagAddCommandAsync(string tagName, [Remainder] string content)
         {
-            var success = await DatabaseService.AddTagToDatabase(Context, tagName, content);
+            var success = await DatabaseService.DatabaseTags.AddTagToDatabase(Context, tagName, content);
 
             if (success)
                 await ReplyAsync($"Tag '{tagName}' added.");
@@ -74,7 +74,7 @@ namespace Doccer_Bot.Modules
                 return;
             }
 
-            var success = await DatabaseService.AddTagToDatabase(Context, userResponseTagName.Content, userResponseTagContent.Content);
+            var success = await DatabaseService.DatabaseTags.AddTagToDatabase(Context, userResponseTagName.Content, userResponseTagContent.Content);
 
             if (success)
                 await ReplyAsync($"Tag '{userResponseTagName}' added.");
@@ -89,7 +89,7 @@ namespace Doccer_Bot.Modules
         [Example("tag remove {name}")]
         public async Task TagRemoveCommandAsync(string tagName)
         {
-            var result = await DatabaseService.RemoveTagFromDatabase(Context, tagName);
+            var result = await DatabaseService.DatabaseTags.RemoveTagFromDatabase(Context, tagName);
 
             if (result == 2)
                 await ReplyAsync($"Tag '{tagName}' deleted.");
@@ -108,7 +108,7 @@ namespace Doccer_Bot.Modules
         [Example("tag edit {name} {content}")]
         public async Task TagEditCommandAsync(string tagName, [Remainder] string newContent)
         {
-            var result = await DatabaseService.EditTagInDatabase(Context, tagName, "text", newContent);
+            var result = await DatabaseService.DatabaseTags.EditTagInDatabase(Context, tagName, "text", newContent);
 
             if (result == 2)
                 await ReplyAsync($"Tag '{tagName}' edited.");
@@ -128,7 +128,7 @@ namespace Doccer_Bot.Modules
         [Example("tag rename {name} {newName}")]
         public async Task TagRenameCommandAsync(string tagName, string newName)
         {
-            var result = await DatabaseService.EditTagInDatabase(Context, tagName, "name", newName);
+            var result = await DatabaseService.DatabaseTags.EditTagInDatabase(Context, tagName, "name", newName);
 
             if (result == 2)
                 await ReplyAsync($"Tag '{tagName}' renamed to '{newName}'.");
@@ -147,7 +147,7 @@ namespace Doccer_Bot.Modules
         [Example("tag describe {description}")]
         public async Task TagDescribeCommandAsync(string tagName, [Remainder] string description)
         {
-            var result = await DatabaseService.EditTagInDatabase(Context, tagName, "description", description);
+            var result = await DatabaseService.DatabaseTags.EditTagInDatabase(Context, tagName, "description", description);
 
             if (result == 2)
                 await ReplyAsync($"Tag '{tagName}' description set.");
@@ -179,7 +179,7 @@ namespace Doccer_Bot.Modules
                 return;
             }
 
-            var result = await DatabaseService.EditTagInDatabase(Context, tagName, "global", global);
+            var result = await DatabaseService.DatabaseTags.EditTagInDatabase(Context, tagName, "global", global);
 
             if (result == 2)
                 await ReplyAsync($"Tag '{tagName}' global status set to '{flag}'.");
@@ -198,7 +198,7 @@ namespace Doccer_Bot.Modules
         [Example("tag list (@username) - username is optional")]
         public async Task TagGetByUserCommandAsync(IUser user = null)
         {
-            var results = await DatabaseService.GetTagsByUserFromDatabase(Context, user);
+            var results = await DatabaseService.DatabaseTags.GetTagsByUserFromDatabase(Context, user);
 
             if (results.Any())
             {
@@ -233,7 +233,7 @@ namespace Doccer_Bot.Modules
         [Example("tag info {name}")]
         public async Task TagGetInfoCommandAsync(string tagName)
         {
-            var tag = await DatabaseService.GetTagInfoFromDatabase(Context, tagName);
+            var tag = await DatabaseService.DatabaseTags.GetTagInfoFromDatabase(Context, tagName);
 
             if (tag != null)
             {
@@ -276,7 +276,7 @@ namespace Doccer_Bot.Modules
         [Alias("tags")]
         public async Task TagGetAllCommandAsync(string search = null)
         {
-            var results = await DatabaseService.GetAllTagsFromDatabase(Context);
+            var results = await DatabaseService.DatabaseTags.GetAllTagsFromDatabase(Context);
 
             if (results.Any())
             {
@@ -303,7 +303,7 @@ namespace Doccer_Bot.Modules
         [Example("tag search {searchterm}")]
         public async Task TagSearchCommandAsync(string search)
         {
-            var results = await DatabaseService.SearchTagsInDatabase(Context, search);
+            var results = await DatabaseService.DatabaseTags.SearchTagsInDatabase(Context, search);
 
             if (results != null)
             {
@@ -338,7 +338,7 @@ namespace Doccer_Bot.Modules
         {
             var tagName = args[0];
 
-            var searchResponse = await DatabaseService.SearchTagsInDatabase(Context, tagName);
+            var searchResponse = await DatabaseService.DatabaseTags.SearchTagsInDatabase(Context, tagName);
             if (searchResponse.Any())
             {
                 string[] numbers = new[] { "0⃣", "1⃣", "2⃣", "3⃣", "4⃣", "5⃣", "6⃣", "7⃣", "8⃣", "9⃣" };
