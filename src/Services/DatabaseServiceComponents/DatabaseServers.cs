@@ -10,16 +10,17 @@ namespace Doccer_Bot.Services.DatabaseServiceComponents
 {
     public class DatabaseServers
     {
+        private readonly DatabaseService _databaseService;
+
         private MongoClient _mongodb;
         private string _mongodbName;
 
-        // should we move this to its own service?
-        public List<IUser> _sudoersList = new List<IUser>();
-
-        public DatabaseServers(MongoClient mongodb, string mongodbName)
+        public DatabaseServers(DatabaseService databaseService)
         {
-            _mongodb = mongodb;
-            _mongodbName = mongodbName;
+            _databaseService = databaseService;
+
+            _mongodb = _databaseService._mongodb;
+            _mongodbName = _databaseService._mongodbName;
         }
 
         public async Task<List<Server>> GetServersInfo()

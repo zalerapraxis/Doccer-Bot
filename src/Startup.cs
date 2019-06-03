@@ -6,6 +6,7 @@ using Discord.Commands;
 using Discord.WebSocket;
 using Doccer_Bot.Modules;
 using Doccer_Bot.Services;
+using Doccer_Bot.Services.DatabaseServiceComponents;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -37,15 +38,12 @@ namespace Example
             var provider = services.BuildServiceProvider();     // Build the service provider
             provider.GetRequiredService<LoggingService>();      // Start the logging service
             provider.GetRequiredService<CommandHandler>(); 		// Start the command handler service
-            provider.GetRequiredService<GoogleCalendarSyncService>();
+            await provider.GetRequiredService<DatabaseService>().Initialize();      // build database connection details
 
             await provider.GetRequiredService<StartupService>().StartAsync();       // Start the startup service
 
-            await provider.GetRequiredService<DatabaseService>().Initialize();      // build database connection details
             await provider.GetRequiredService<RaidEventsService>().Initialize();    // get discord server credentials & set up channel refs
-
             await provider.GetRequiredService<RaidEventsService>().StartTimer();
-
 
             await Task.Delay(-1);                               // Keep the program alive
         }
@@ -66,6 +64,9 @@ namespace Example
             .AddSingleton<StartupService>()         // Add startupservice to the collection
             .AddSingleton<LoggingService>()         // Add loggingservice to the collection
             .AddSingleton<DatabaseService>()
+            .AddSingleton<DatabaseSudo>()
+            .AddSingleton<DatabaseTags>()
+            .AddSingleton<DatabaseServers>()
             .AddSingleton<InteractiveService>()
             .AddSingleton<RaidEventsService>()
             .AddSingleton<GoogleCalendarSyncService>()

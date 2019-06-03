@@ -7,13 +7,14 @@ using Discord.Addons.Interactive;
 using Discord.Commands;
 using Doccer_Bot.Modules.Common;
 using Doccer_Bot.Services;
+using Doccer_Bot.Services.DatabaseServiceComponents;
 
 namespace Doccer_Bot.Modules
 {
     [Name("Sudo")]
     public class SudoModule : InteractiveBase
     {
-        public DatabaseService DatabaseService { get; set; }
+        public DatabaseSudo DatabaseSudo { get; set; }
 
         [Command("sudo", RunMode = RunMode.Async)]
         [Summary("Ignores private scope of tags & allows bot administration")]
@@ -21,16 +22,16 @@ namespace Doccer_Bot.Modules
         public async Task SudoToggleCommandAsync()
         {
             var currentUser = Context.User as IUser;
-            if (DatabaseService.DatabaseTags.UserIsSudoer(Context))
+            if (DatabaseSudo.UserIsSudoer(Context))
             {
-                if (DatabaseService.DatabaseTags._sudoersList.Contains(currentUser))
+                if (DatabaseSudo._sudoersList.Contains(currentUser))
                 {
-                    DatabaseService.DatabaseTags._sudoersList.Remove(currentUser);
+                    DatabaseSudo._sudoersList.Remove(currentUser);
                     await ReplyAsync("Disabled your Sudo mode.");
                 }
                 else
                 {
-                    DatabaseService.DatabaseTags._sudoersList.Add(currentUser);
+                    DatabaseSudo._sudoersList.Add(currentUser);
                     await ReplyAsync("Enabled your Sudo mode.");
                 }
             }

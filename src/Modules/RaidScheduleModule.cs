@@ -8,6 +8,7 @@ using Discord.Addons.Interactive;
 using Discord.Commands;
 using Doccer_Bot.Modules.Common;
 using Doccer_Bot.Services;
+using Doccer_Bot.Services.DatabaseServiceComponents;
 
 namespace Doccer_Bot.Modules
 {
@@ -18,7 +19,7 @@ namespace Doccer_Bot.Modules
         public GoogleCalendarSyncService GoogleCalendarSyncService { get; set; }
         public ScheduleService ScheduleService { get; set; }
         public RaidEventsService RaidEventsService { get; set; }
-        public DatabaseService DatabaseService { get; set; }
+        public DatabaseServers DatabaseServers { get; set; }
 
         // resync raid schedule timer
         [Command("resync")]
@@ -110,7 +111,7 @@ namespace Doccer_Bot.Modules
             };
 
             // add this server's data to the database
-            await DatabaseService.DatabaseServers.AddServerInfo(newServer);
+            await DatabaseServers.AddServerInfo(newServer);
 
             // initialize this server
             RaidEventsService.SetServerDiscordObjects(newServer);

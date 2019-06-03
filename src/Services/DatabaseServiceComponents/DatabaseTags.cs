@@ -4,23 +4,27 @@ using System.Text;
 using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
+using Microsoft.Extensions.DependencyInjection;
 using MongoDB.Driver;
 
 namespace Doccer_Bot.Services.DatabaseServiceComponents
 {
     public class DatabaseTags
     {
+        private readonly DatabaseService _databaseService;
+        private readonly DatabaseSudo _databaseSudo;
 
         private MongoClient _mongodb;
         private string _mongodbName;
 
-        // should we move this to its own service?
-        public List<IUser> _sudoersList = new List<IUser>();
-
-        public DatabaseTags(MongoClient mongodb, string mongodbName)
+        public DatabaseTags(DatabaseService databaseService, DatabaseSudo databaseSudo)
         {
-            _mongodb = mongodb;
-            _mongodbName = mongodbName;
+            _databaseService = databaseService;
+            _databaseSudo = databaseSudo;
+
+            _mongodb = _databaseService._mongodb;
+            _mongodbName = _databaseService._mongodbName;
+
         }
 
         // called via .tag {name} command
@@ -255,7 +259,7 @@ namespace Doccer_Bot.Services.DatabaseServiceComponents
 
             // if sudo mode enabled & calling user is in sudoers list, return all matching tags
             // else, return only global tags and tags made in this server
-            if (_sudoersList.Contains(context.User) && UserIsSudoer(context))
+            if (_databaseSudo._sudoersList.Contains(context.User) && _databaseSudo.UserIsSudoer(context))
             {
                 filter = builder.Eq(key, value);
             }
@@ -289,7 +293,7 @@ namespace Doccer_Bot.Services.DatabaseServiceComponents
 
             // if sudo mode enabled & calling user is in sudoers list, return all matching tags
             // else, return only global tags and tags made in this server
-            if (_sudoersList.Contains(context.User) && UserIsSudoer(context))
+            if (_databaseSudo._sudoersList.Contains(context.User) && _databaseSudo.UserIsSudoer(context))
             {
                 filter = builder.Regex(key, value);
             }
@@ -323,7 +327,7 @@ namespace Doccer_Bot.Services.DatabaseServiceComponents
 
             // if sudo mode enabled & calling user is in sudoers list, return all matching tags
             // else, return only global tags and tags made in this server
-            if (_sudoersList.Contains(context.User) && UserIsSudoer(context))
+            if (_databaseSudo._sudoersList.Contains(context.User) && _databaseSudo.UserIsSudoer(context))
             {
                 filter = builder.Empty;
             }
@@ -360,19 +364,6 @@ namespace Doccer_Bot.Services.DatabaseServiceComponents
                 return true;
             }
             return false;
-        }
-
-        public bool UserIsSudoer(SocketCommandContext context)
-        {
-            var database = _mongodb.GetDatabase(_mongodbName);
-            var sudoersCollection = database.GetCollection<SudoUser>("sudoers");
-
-            var builder = Builders<SudoUser>.Filter;
-            FilterDefinition<SudoUser> filter = builder.Eq("user_id", context.User.Id.ToString());
-
-            var userInSudoers = sudoersCollection.FindAsync(filter).Result.Any();
-
-            return userInSudoers;
         }
     }
 }

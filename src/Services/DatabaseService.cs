@@ -17,9 +17,6 @@ namespace Doccer_Bot.Services
 
         public MongoClient _mongodb;
         public string _mongodbName;
-
-        public DatabaseTags DatabaseTags;
-        public DatabaseServers DatabaseServers;
         
         public DatabaseService(IConfigurationRoot config)
         {
@@ -36,9 +33,6 @@ namespace Doccer_Bot.Services
 
             _mongodb = new MongoClient($"mongodb://{username}:{password}@{host}/?authSource={dbName}");
             _mongodbName = dbName;
-
-            DatabaseTags = new DatabaseTags(_mongodb, _mongodbName);
-            DatabaseServers = new DatabaseServers(_mongodb, _mongodbName);
         }
 
         // called via .meme command and via textmemeservice

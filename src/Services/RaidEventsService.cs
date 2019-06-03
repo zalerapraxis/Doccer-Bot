@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Discord;
 using Discord.WebSocket;
+using Doccer_Bot.Services.DatabaseServiceComponents;
 using Example;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,7 +19,7 @@ namespace Doccer_Bot.Services
 
         private readonly GoogleCalendarSyncService _googleCalendarSyncService;
         private readonly ScheduleService _scheduleService;
-        private readonly DatabaseService _databaseService;
+        private readonly DatabaseServers _databaseServers;
         private readonly LoggingService _logger;
 
         private Timer _scheduleTimer; // so garbage collection doesn't eat our timer after a bit
@@ -27,17 +28,16 @@ namespace Doccer_Bot.Services
         // DiscordSocketClient, CommandService, and IConfigurationRoot are injected automatically from the IServiceProvider
         public RaidEventsService(
             DiscordSocketClient discord,
-            IServiceProvider services,
             GoogleCalendarSyncService googleCalendarSyncService,
             ScheduleService scheduleService,
-            DatabaseService databaseService,
+            DatabaseServers databaseServers,
             LoggingService logger)
         {
             _discord = discord;
 
             _googleCalendarSyncService = googleCalendarSyncService;
             _scheduleService = scheduleService;
-            _databaseService = databaseService;
+            _databaseServers = databaseServers;
             _logger = logger;
         }
 
@@ -137,7 +137,7 @@ namespace Doccer_Bot.Services
             foreach (var server in serversToRemove)
             {
                 Servers.ServerList.RemoveAll(x => x.ServerId == server.ServerId);
-                await _databaseService.DatabaseServers.RemoveServerInfo(server);
+                await _databaseServers.RemoveServerInfo(server);
             }
         }
 
@@ -155,7 +155,7 @@ namespace Doccer_Bot.Services
         public async Task GetServersInfoFromDatabase()
         {
             // get server info from database
-            var servers = await _databaseService.DatabaseServers.GetServersInfo();
+            var servers = await _databaseServers.GetServersInfo();
 
             foreach (var server in servers)
             {

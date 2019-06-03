@@ -10,6 +10,7 @@ using Discord.Addons.Interactive;
 using Discord.Commands;
 using Discord.WebSocket;
 using Doccer_Bot.Models;
+using Doccer_Bot.Services.DatabaseServiceComponents;
 using Example;
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Auth.OAuth2.Flows;
@@ -30,7 +31,7 @@ namespace Doccer_Bot.Services
     {
         private readonly IConfiguration _config;
         private readonly ScheduleService _scheduleService;
-        private readonly DatabaseService _databaseService;
+        private readonly DatabaseServers _databaseServers;
         private readonly InteractiveService _interactiveService;
         private readonly LoggingService _logger;
 
@@ -46,14 +47,14 @@ namespace Doccer_Bot.Services
             IConfigurationRoot config,
             InteractiveService interactiveService,
             ScheduleService scheduleService,
-            DatabaseService datbaseService,
+            DatabaseServers datbaseServers,
             LoggingService logger)
         {
             _config = config;
 
             _interactiveService = interactiveService;
             _scheduleService = scheduleService;
-            _databaseService = datbaseService;
+            _databaseServers = datbaseServers;
             _logger = logger;
         }
 
@@ -269,7 +270,7 @@ namespace Doccer_Bot.Services
             Servers.ServerList[serverIndex].CalendarId = calendarId;
 
             // and update the database as well
-            await _databaseService.DatabaseServers.EditServerInfo(server.ServerId, "calendar_id", calendarId);
+            await _databaseServers.EditServerInfo(server.ServerId, "calendar_id", calendarId);
         }
 
         // called by .auth command - build auth code & send to user
