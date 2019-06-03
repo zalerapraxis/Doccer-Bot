@@ -14,9 +14,6 @@ namespace Example.Modules
     [RequireContext(ContextType.Guild)]
     public class ChatClearingModule : ModuleBase<SocketCommandContext>
     {
-        // Dependency Injection will fill this value in for us
-        public ScheduleService ScheduleService { get; set; }
-
         // clear chatlogs
         [Command("clear")]
         [Summary("Clears the last x messages in current channel - default 100")]
