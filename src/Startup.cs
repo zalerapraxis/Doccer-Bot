@@ -38,7 +38,6 @@ namespace Example
             var provider = services.BuildServiceProvider();     // Build the service provider
             provider.GetRequiredService<LoggingService>();      // Start the logging service
             provider.GetRequiredService<CommandHandler>(); 		// Start the command handler service
-            await provider.GetRequiredService<DatabaseService>().Initialize();      // build database connection details
 
             await provider.GetRequiredService<StartupService>().StartAsync();       // Start the startup service
 
@@ -72,6 +71,7 @@ namespace Example
             .AddSingleton<GoogleCalendarSyncService>()
             .AddSingleton<ScheduleService>()
             .AddSingleton<TextMemeService>()
+            .AddSingleton<MarketService>()
             .AddSingleton<Random>()                 // Add random to the collection
             .AddSingleton(Configuration);           // Add the configuration to the collection
         }

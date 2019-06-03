@@ -13,23 +13,16 @@ namespace Doccer_Bot.Services
 {
     public class DatabaseService
     {
-        private readonly IConfigurationRoot _config;
-
         public MongoClient _mongodb;
         public string _mongodbName;
         
         public DatabaseService(IConfigurationRoot config)
         {
-            _config = config;
-        }
-
-        public async Task Initialize()
-        {
             // assumes our db user auths to the same db as the one we're connecting to
-            var username = _config["dbUsername"];
-            var password = _config["dbPassword"];
-            var host = _config["dbHost"];
-            var dbName = _config["dbName"];
+            var username = config["dbUsername"];
+            var password = config["dbPassword"];
+            var host = config["dbHost"];
+            var dbName = config["dbName"];
 
             _mongodb = new MongoClient($"mongodb://{username}:{password}@{host}/?authSource={dbName}");
             _mongodbName = dbName;
