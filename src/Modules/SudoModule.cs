@@ -22,7 +22,7 @@ namespace Doccer_Bot.Modules
         public async Task SudoToggleCommandAsync()
         {
             var currentUser = Context.User as IUser;
-            if (DatabaseSudo.UserIsSudoer(Context))
+            if (DatabaseSudo.IsUserSudoer(Context))
             {
                 if (DatabaseSudo._sudoersList.Contains(currentUser))
                 {
@@ -37,6 +37,49 @@ namespace Doccer_Bot.Modules
             }
             else
                 await ReplyAsync("You are not in the sudoers list.");
+        }
+
+        [Command("sudoer", RunMode = RunMode.Async)]
+        [Summary("Adds or removes a user from the sudo list")]
+        [Example("sudoer {add/remove} {@user}")]
+        public async Task SudoerAddRemoveCommandAsync(string function, string username)
+        {
+            ulong userid;
+            var userWasProvided = MentionUtils.TryParseUser(username, out userid);
+
+            // check if the function passed is correct
+            if (function != "add" && function != "remove")
+            {
+                await ReplyAsync("You didn't correctly specify what you wanted to do. Try \"add\" or \"remove\".");
+                return;
+            }
+
+            // check if the user passed exists & was parsed correctly
+            if (!userWasProvided)
+            {
+                await ReplyAsync("You didn't specify a user to run the command on. Try @mentioning a user.");
+                return;
+            }
+
+            var user = Context.Guild.GetUser(userid) as IUser;
+
+            string replyFunctionText;
+            if (function == "add")
+                replyFunctionText = "added to";
+            else
+                replyFunctionText = "removed from";
+
+            switch (function)
+            {
+                case "add":
+                    await DatabaseSudo.AddUserToSudoers(user);
+                    break;
+                case "remove":
+                    await DatabaseSudo.RemoveUserFromSudoers(user);
+                    break;
+            }
+
+            await ReplyAsync($"{user.Username} was successfully {replyFunctionText} the sudoers list.");
         }
     }
 }
