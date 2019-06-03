@@ -259,7 +259,7 @@ namespace Doccer_Bot.Services.DatabaseServiceComponents
 
             // if sudo mode enabled & calling user is in sudoers list, return all matching tags
             // else, return only global tags and tags made in this server
-            if (_databaseSudo._sudoersList.Contains(context.User) && _databaseSudo.UserIsSudoer(context))
+            if (_databaseSudo._sudoersList.Contains(context.User) && _databaseSudo.IsUserSudoer(context))
             {
                 filter = builder.Eq(key, value);
             }
@@ -293,7 +293,7 @@ namespace Doccer_Bot.Services.DatabaseServiceComponents
 
             // if sudo mode enabled & calling user is in sudoers list, return all matching tags
             // else, return only global tags and tags made in this server
-            if (_databaseSudo._sudoersList.Contains(context.User) && _databaseSudo.UserIsSudoer(context))
+            if (_databaseSudo._sudoersList.Contains(context.User) && _databaseSudo.IsUserSudoer(context))
             {
                 filter = builder.Regex(key, value);
             }
@@ -327,7 +327,7 @@ namespace Doccer_Bot.Services.DatabaseServiceComponents
 
             // if sudo mode enabled & calling user is in sudoers list, return all matching tags
             // else, return only global tags and tags made in this server
-            if (_databaseSudo._sudoersList.Contains(context.User) && _databaseSudo.UserIsSudoer(context))
+            if (_databaseSudo._sudoersList.Contains(context.User) && _databaseSudo.IsUserSudoer(context))
             {
                 filter = builder.Empty;
             }
