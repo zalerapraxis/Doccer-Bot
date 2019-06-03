@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
 using MongoDB.Driver;
@@ -25,7 +26,32 @@ namespace Doccer_Bot.Services.DatabaseServiceComponents
             _mongodbName = _databaseService._mongodbName;
         }
 
-        public bool UserIsSudoer(SocketCommandContext context)
+        // called via .tag add {name} {contents} command - returns true if add successful, false otherwise
+        public async Task AddUserToSudoers(IUser user)
+        {
+            var newUser = new SudoUser()
+            {
+                Username = user.Username,
+                userId = user.Id.ToString()
+            };
+
+            var database = _mongodb.GetDatabase(_mongodbName);
+            var sudoCollection = database.GetCollection<SudoUser>("sudoers");
+
+            await sudoCollection.InsertOneAsync(newUser);
+        }
+
+        public async Task RemoveUserFromSudoers(IUser user)
+        {
+            var database = _mongodb.GetDatabase(_mongodbName);
+            var sudoCollection = database.GetCollection<SudoUser>("sudoers");
+
+            var filter = Builders<SudoUser>.Filter.Eq("user_id", user.Id);
+
+            await sudoCollection.DeleteOneAsync(filter);
+        }
+
+        public bool IsUserSudoer(SocketCommandContext context)
         {
             var database = _mongodb.GetDatabase(_mongodbName);
             var sudoersCollection = database.GetCollection<SudoUser>("sudoers");
