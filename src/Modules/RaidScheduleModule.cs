@@ -21,6 +21,7 @@ namespace Doccer_Bot.Modules
         public RaidEventsService RaidEventsService { get; set; }
         public DatabaseServers DatabaseServers { get; set; }
 
+
         // resync raid schedule timer
         [Command("resync")]
         [Summary("Realigns the timer to nearest time interval")]

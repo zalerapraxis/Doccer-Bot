@@ -20,6 +20,7 @@ namespace Example.Modules
             _config = config;
         }
 
+
         [Command("helpmod")]
         [Summary("Displays help for a specific module - help {modulename}")]
         public async Task HelpModuleAsync(string requestedModule)

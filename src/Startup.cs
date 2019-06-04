@@ -62,11 +62,11 @@ namespace Example
             .AddSingleton<CommandHandler>()         // Add the command handler to the collection
             .AddSingleton<StartupService>()         // Add startupservice to the collection
             .AddSingleton<LoggingService>()         // Add loggingservice to the collection
-            .AddSingleton<DatabaseService>()
-            .AddSingleton<DatabaseSudo>()
-            .AddSingleton<DatabaseTags>()
-            .AddSingleton<DatabaseServers>()
             .AddSingleton<InteractiveService>()
+            .AddSingleton<DatabaseService>()
+                .AddSingleton<DatabaseSudo>()
+                .AddSingleton<DatabaseTags>()
+                .AddSingleton<DatabaseServers>()
             .AddSingleton<RaidEventsService>()
             .AddSingleton<GoogleCalendarSyncService>()
             .AddSingleton<ScheduleService>()

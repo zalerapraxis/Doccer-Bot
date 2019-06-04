@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using Discord;
 using Discord.WebSocket;
 using Doccer_Bot.Services.DatabaseServiceComponents;
-using Example;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 

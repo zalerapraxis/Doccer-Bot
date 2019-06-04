@@ -83,7 +83,6 @@ namespace Doccer_Bot.Services
                 if (flowManager.ShouldForceTokenRetrieval() || token == null ||
                     token.RefreshToken == null && token.IsExpired(flowManager.Clock))
                 {
-                    await server.ConfigChannel.SendMessageAsync("Google Auth credentials missing or expired. Use ```.auth``` to authenticate.");
                     return;
                 }
 
@@ -226,7 +225,7 @@ namespace Doccer_Bot.Services
         // returns true if we're authorized and have a calendar id, returns false if either checks are false
         public CalendarSyncStatus CheckIfSyncPossible(Server server)
         {
-            // check if we have credentials for google api
+            // check if we have credentials for google apiitem
             if (server.GoogleUserCredential == null)
                 return CalendarSyncStatus.NullCredentials;
 
@@ -248,11 +247,11 @@ namespace Doccer_Bot.Services
             switch (status)
             {
                 case CalendarSyncStatus.NullCredentials:
-                    return "Google Auth credentials are missing.";
+                    return "Google Auth credentials are missing. Use ```.auth``` to authenticate.";
                 case CalendarSyncStatus.NullCalendarId:
-                    return "Calendar ID is missing.";
+                    return "Calendar ID is missing. Use ```.calendarid {calendarid} to set it.";
                 case CalendarSyncStatus.EmptyCalendarId:
-                    return "Calendar ID hasn't been set.";
+                    return "Calendar ID is missing. Use ```.calendarid {calendarid} to set it.";
                 case CalendarSyncStatus.ServerUnavailable:
                     return "Bot is not a member of this server.";
             }

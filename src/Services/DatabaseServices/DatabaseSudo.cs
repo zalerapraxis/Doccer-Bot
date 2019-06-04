@@ -46,7 +46,7 @@ namespace Doccer_Bot.Services.DatabaseServiceComponents
             var database = _mongodb.GetDatabase(_mongodbName);
             var sudoCollection = database.GetCollection<SudoUser>("sudoers");
 
-            var filter = Builders<SudoUser>.Filter.Eq("user_id", user.Id);
+            var filter = Builders<SudoUser>.Filter.Eq("user_id", user.Id.ToString());
 
             await sudoCollection.DeleteOneAsync(filter);
         }

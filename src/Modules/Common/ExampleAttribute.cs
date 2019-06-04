@@ -4,6 +4,8 @@ using System.Text;
 
 namespace Doccer_Bot.Modules.Common
 {
+    // show examples of how to use commands
+    // used by help module to show command usage for commands with parameters
     internal sealed class ExampleAttribute : Attribute
     {
         public string ExampleText { get; private set; }
