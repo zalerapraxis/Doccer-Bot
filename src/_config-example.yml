@@ -4,3 +4,9 @@ configChannelId:
 reminderChannelId: 
 token: 
 prefix: "."
+dbUsername: "username"
+dbPassword: "password"
+dbHost: "hostname"
+dbName: "database"
+custommarketapiurl: "http://192.168.254.100"
+xivapikey: ""

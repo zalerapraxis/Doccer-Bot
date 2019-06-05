@@ -2,7 +2,9 @@
 using Discord.Commands;
 using Microsoft.Extensions.Configuration;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
+using Doccer_Bot.Modules.Common;
 
 namespace Example.Modules
 {
@@ -17,6 +19,7 @@ namespace Example.Modules
             _service = service;
             _config = config;
         }
+
 
         [Command("helpmod")]
         [Summary("Displays help for a specific module - help {modulename}")]
@@ -34,12 +37,21 @@ namespace Example.Modules
             foreach (var cmd in module.Commands)
             {
                 var result = await cmd.CheckPreconditionsAsync(Context);
+
+                var example = cmd.Attributes.OfType<ExampleAttribute>().FirstOrDefault();
+
+                StringBuilder descriptionBuilder = new StringBuilder();
+
+                descriptionBuilder.Append(cmd.Summary);
+                if (example != null && example.ExampleText != "")
+                    descriptionBuilder.Append($" - Example: *{example.ExampleText}*");
+
                 if (result.IsSuccess)
                 {
                     builder.AddField(x =>
                     {
                         x.Name = $"{prefix}{cmd.Aliases.First()}";
-                        x.Value = $"{cmd.Summary}";
+                        x.Value = $"{descriptionBuilder}";
                         x.IsInline = false;
                     });
                 }

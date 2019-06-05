@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Discord;
 using Discord.Addons.Interactive;
 using Discord.Commands;
+using Doccer_Bot.Modules.Common;
 using Doccer_Bot.Services;
 
 namespace Doccer_Bot.Modules
@@ -14,9 +15,12 @@ namespace Doccer_Bot.Modules
     {
         public DatabaseService DatabaseService { get; set; }
 
-        [RequireUserPermission(GuildPermission.Administrator)]
-        [Summary("Automatically add vote reactions to the command message - .vote {message}")]
+
         [Command("vote", RunMode = RunMode.Async)]
+        [Summary("Start a vote using yes/no reactions")]
+        [Example("vote {message}")]
+        [RequireUserPermission(GuildPermission.Administrator)]
+        [RequireBotPermission(ChannelPermission.ManageMessages)]
         public async Task VoteCommandAsync([Remainder]string messageContents)
         {
             // save the message temporarily so we can delete it in a sec
@@ -41,8 +45,10 @@ namespace Doccer_Bot.Modules
             await responseMsg.AddReactionsAsync(emotes);
         }
 
-        [Summary("Post a meme - meme (name) - name is optional, leaving it out returns a list of all stored memes")]
+
         [Command("meme", RunMode = RunMode.Async)]
+        [Summary("Posts a copypasta - returns a list of all stored copypasta if left blank")]
+        [Example("meme {memename}")]
         public async Task PostMemeCommandAsync([Remainder]string query = null)
         {
             var memes = await DatabaseService.GetTextMemes();

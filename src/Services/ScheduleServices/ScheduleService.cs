@@ -8,6 +8,7 @@ using Discord;
 using Discord.Commands;
 using Discord.Rest;
 using Discord.WebSocket;
+using Doccer_Bot.Models;
 using Example;
 using Google.Apis.Calendar.v3.Data;
 using Microsoft.Extensions.Configuration;
@@ -23,9 +24,6 @@ namespace Doccer_Bot.Services
         private readonly TextMemeService _textMemeService;
         private readonly LoggingService _logger;
 
-        private ITextChannel _reminderChannel;
-        public IUserMessage _eventEmbedMessage;
-
         // DiscordSocketClient, CommandService, and IConfigurationRoot are injected automatically from the IServiceProvider
         public ScheduleService(
             DiscordSocketClient discord,
@@ -40,23 +38,16 @@ namespace Doccer_Bot.Services
             _logger = logger;
         }
 
-        public async Task Initialize()
-        {
-            // get id of reminders channel from config
-            var reminderChannelId = Convert.ToUInt64(_config["reminderChannelId"]);
-            _reminderChannel = _discord.GetChannel(reminderChannelId) as ITextChannel;
-        }
-
         // send or modify messages alerting the user that an event will be starting soon
-        public async Task HandleReminders()
+        public async Task HandleReminders(Server server)
         {
-            foreach (var calendarEvent in CalendarEvents.Events)
+            foreach (var calendarEvent in server.Events)
             {
                 // look for pre-existing reminder messages containing this event's title
                 // if we find one, and we don't already have a alertmessage stored,
                 // set it as this event's alert message and use that for modification.
                 // this should only come into play if the hour alert message has been sent and the bot is restarted after
-                var oldReminderMessage = await GetPreviousReminderMessage(calendarEvent.Name);
+                var oldReminderMessage = await GetPreviousReminderMessage(server, calendarEvent.Name);
                 if (oldReminderMessage != null && calendarEvent.AlertMessage == null)
                     calendarEvent.AlertMessage = oldReminderMessage;
 
@@ -77,7 +68,7 @@ namespace Doccer_Bot.Services
                     // if there wasn't an alert message, send a new message
                     else
                     {
-                        var msg = await _reminderChannel.SendMessageAsync(messageContents);
+                        var msg = await server.ReminderChannel.SendMessageAsync(messageContents);
                         calendarEvent.AlertMessage = msg;
                     }
                 }
@@ -95,7 +86,7 @@ namespace Doccer_Bot.Services
                     // if there wasn't an alert message, send a new message
                     else
                     {
-                        var msg = await _reminderChannel.SendMessageAsync(messageContents);
+                        var msg = await server.ReminderChannel.SendMessageAsync(messageContents);
                         calendarEvent.AlertMessage = msg;
                     }
                 }
@@ -112,69 +103,71 @@ namespace Doccer_Bot.Services
         }
 
         // send or modify embed messages listing upcoming events from the raid calendar
-        public async Task SendEvents()
+        public async Task SendEvents(Server server)
         {
             // build embed
-            var embed = BuildEventsEmbed();
+            var embed = BuildEventsEmbed(server);
 
             // check if we haven't set an embed message yet
-            if (_eventEmbedMessage == null)
+            if (server.EventEmbedMessage == null)
             {
                 // try to get a pre-existing event embed
-                var oldEmbedMessage = await GetPreviousEmbed();
+                var oldEmbedMessage = await GetPreviousEmbed(server);
 
                 // if we found a pre-existing event embed, set it as our current event embed message
                 // and edit it
                 if (oldEmbedMessage != null)
                 {
-                    _eventEmbedMessage = oldEmbedMessage;
-                    await _eventEmbedMessage.ModifyAsync(m => { m.Embed = embed; });
+                    server.EventEmbedMessage = oldEmbedMessage;
+                    await server.EventEmbedMessage.ModifyAsync(m => { m.Embed = embed; });
                 }
                 // otherwise, send a new one and set it as our current event embed message
                 else
                 {
                     // send embed
-                    var message = await _reminderChannel.SendMessageAsync(null, false, embed);
+                    var message = await server.ReminderChannel.SendMessageAsync(null, false, embed);
 
                     // store message id
-                    _eventEmbedMessage = message;
+                    server.EventEmbedMessage = message;
                 }
 
             } // if we have set a current event embed message, edit it
             else
             {
-                await _eventEmbedMessage.ModifyAsync(m => { m.Embed = embed; });
+                await server.EventEmbedMessage.ModifyAsync(m => { m.Embed = embed; });
             }
         }
 
         // posts the list of future events into the channel that called the command
         public async Task GetEvents(SocketCommandContext context)
         {
+            var server = Servers.ServerList.Find(x => x.DiscordServer == context.Guild);
+
             // if command context is the reminders channel, there's already an event embed
             // so just update it instead of sending a new embed
-            if (context.Channel.Id == _reminderChannel.Id)
-                await SendEvents();
+            if (context.Channel.Id == server.ReminderChannel.Id)
+                await SendEvents(server);
             else // if context is not the reminders channel, send new embed
             {
-                var embed = BuildEventsEmbed();
+                var embed = BuildEventsEmbed(server);
                 await context.Channel.SendMessageAsync(null, false, embed);
             }
         }
 
         // put together the events embed & return it to calling method
-        private Embed BuildEventsEmbed()
+        private Embed BuildEventsEmbed(Server server)
         {
             EmbedBuilder embedBuilder = new EmbedBuilder();
 
             // if there are no items in CalendarEvents, build a field stating so
-            if (CalendarEvents.Events.Count == 0)
+            if (server.Events.Count == 0)
             {
                 embedBuilder.AddField("No raids scheduled.", _textMemeService.GetMemeTextForNoEvents());
             }
 
             // iterate through each calendar event and build strings from them
             // if there are no events, the foreach loop is skipped, so no need to check
-            foreach (var calendarEvent in CalendarEvents.Events)
+            foreach (var calendarEvent in server.Events)
             {
                 // don't add items from the past
                 if (calendarEvent.StartDate < TimezoneAdjustedDateTime.Now.Invoke())
@@ -230,10 +223,10 @@ namespace Doccer_Bot.Services
 
         // searches the _reminderChannel for a message from the bot containing an embed (how else can we filter this - title?)
         // if it finds one, return that message to the calling method to be set as _eventEmbedMessage
-        private async Task<IUserMessage> GetPreviousEmbed()
+        private async Task<IUserMessage> GetPreviousEmbed(Server server)
         {
             // get all messages in reminder channel
-            var messages = await _reminderChannel.GetMessagesAsync().FlattenAsync();
+            var messages = await server.ReminderChannel.GetMessagesAsync().FlattenAsync();
             // try to get a pre-existing embed message matching our usual event embed parameters
             // return the results
             try
@@ -252,14 +245,15 @@ namespace Doccer_Bot.Services
         // searches the _reminderChannel for a message from the bot containing the passed param
         // (this should be the title of an event for which we are looking for a remindermessage to edit)
         // if it finds one, return that message to the calling method to be modified
-        private async Task<IUserMessage> GetPreviousReminderMessage(string messageContains)
+        private async Task<IUserMessage> GetPreviousReminderMessage(Server server, string messageContains)
         {
             // get all messages in reminder channel
-            var messages = await _reminderChannel.GetMessagesAsync().FlattenAsync();
+            var messages = await server.ReminderChannel.GetMessagesAsync().FlattenAsync();
             // try to get a pre-existing message matching messageContains (so {eventtitle})
-            //return the results
+            //return the results or null
             try
             {
+                // this will raise an exception if there's no reminder message
                 var reminderMsg = messages.Where(msg => msg.Author.Id == _discord.CurrentUser.Id).First(msg => msg.Content.Contains(messageContains));
                 return (IUserMessage) reminderMsg;
             }
@@ -268,19 +262,5 @@ namespace Doccer_Bot.Services
                 return null;
             }
         }
-    }
-
-    public class CalendarEvents
-    {
-        public static List<CalendarEvent> Events = new List<CalendarEvent>();
-    }
-
-    public class CalendarEvent
-    {
-        public string Name { get; set; }
-        public DateTime StartDate { get; set; }
-        public DateTime EndDate { get; set; }
-        public string Timezone { get; set; }
-        public IUserMessage AlertMessage { get; set; }
     }
 }

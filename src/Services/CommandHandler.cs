@@ -3,6 +3,7 @@ using Discord.WebSocket;
 using Microsoft.Extensions.Configuration;
 using System.Threading.Tasks;
 using System;
+using System.Text;
 using Discord;
 
 namespace Example
@@ -57,7 +58,10 @@ namespace Example
                 return;
 
             // the command failed, let's notify the user that something happened.
-            await context.Channel.SendMessageAsync($"error: {result}");
+            StringBuilder errorBuilder = new StringBuilder();
+            errorBuilder.AppendLine($":x: Error: {result}");
+            errorBuilder.Append($":information_source: If you're unsure of what happened, let {_discord.GetUser(110866678161645568).Mention} know.");
+            await context.Channel.SendMessageAsync(errorBuilder.ToString());
         }
     }
 }

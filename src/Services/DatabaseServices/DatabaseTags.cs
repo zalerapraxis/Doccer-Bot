@@ -4,48 +4,27 @@ using System.Text;
 using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
-using Microsoft.Extensions.Configuration;
-using MongoDB.Bson;
+using Microsoft.Extensions.DependencyInjection;
 using MongoDB.Driver;
 
-namespace Doccer_Bot.Services
+namespace Doccer_Bot.Services.DatabaseServiceComponents
 {
-    public class DatabaseService
+    public class DatabaseTags
     {
-        private readonly IConfigurationRoot _config;
+        private readonly DatabaseService _databaseService;
+        private readonly DatabaseSudo _databaseSudo;
+
         private MongoClient _mongodb;
         private string _mongodbName;
 
-        public DatabaseService(IConfigurationRoot config)
+        public DatabaseTags(DatabaseService databaseService, DatabaseSudo databaseSudo)
         {
-            _config = config;
-        }
+            _databaseService = databaseService;
+            _databaseSudo = databaseSudo;
 
-        public async Task Initialize()
-        {
-            // assumes our db user auths to the same db as the one we're connecting to
-            var username = _config["dbUsername"];
-            var password = _config["dbPassword"];
-            var host = _config["dbHost"];
-            var dbName = _config["dbName"];
+            _mongodb = _databaseService._mongodb;
+            _mongodbName = _databaseService._mongodbName;
 
-            _mongodb = new MongoClient($"mongodb://{username}:{password}@{host}/?authSource={dbName}");
-            _mongodbName = dbName;
-        }
-
-        // called via .meme command and via textmemeservice
-        public async Task<List<TextMeme>> GetTextMemes()
-        {
-            var database = _mongodb.GetDatabase(_mongodbName);
-            var textmemesCollection = database.GetCollection<TextMeme>("textmemes");
-
-            var textMemes = await textmemesCollection.Find(new BsonDocument()).ToListAsync();
-
-            // convert \n linebreaks in mongo to .net linebreaks
-            foreach (var textMeme in textMemes)
-                textMeme.Text = textMeme.Text.Replace("\\n", Environment.NewLine);
-
-            return textMemes;
         }
 
         // called via .tag {name} command
@@ -55,8 +34,7 @@ namespace Doccer_Bot.Services
             var tagCollection = database.GetCollection<Tag>("tags");
 
             // filter by name, search for passed tag name, get first tag matching filter
-            //var filter = Builders<Tag>.Filter.Eq("name", tagName);
-            var filter = BuildFilterEq(context, "name", tagName);
+            var filter = BuildTagFilterEq(context, "name", tagName);
 
             var tagExists = tagCollection.FindAsync(filter).Result.Any();
 
@@ -72,7 +50,7 @@ namespace Doccer_Bot.Services
                 var update = Builders<Tag>.Update.Set("uses", tag.Uses);
 
                 // commit uses change to tag
-                tagCollection.UpdateOne(filter, update);
+                await tagCollection.UpdateOneAsync(filter, update);
 
                 // return tag to calling function
                 return tag.Text;
@@ -89,8 +67,8 @@ namespace Doccer_Bot.Services
 
             FilterDefinition<Tag> filter;
 
-            filter = BuildFilterEmpty(context);
-            
+            filter = BuildTagFilterEmpty(context);
+
             // use whichever filter to collect results from database as list of tags
             var dbResponse = await tagCollection.FindAsync(filter).Result.ToListAsync();
 
@@ -118,7 +96,7 @@ namespace Doccer_Bot.Services
 
             FilterDefinition<Tag> filter;
 
-            filter = BuildFilterRegex(context, "name", $"({searchTerm})");
+            filter = BuildTagFilterRegex(context, "name", $"({searchTerm})");
 
             // use whichever filter to collect results from database as list of tags
             var dbResponse = await tagCollection.FindAsync(filter).Result.ToListAsync();
@@ -144,9 +122,9 @@ namespace Doccer_Bot.Services
             FilterDefinition<Tag> filter;
 
             if (user != null)
-                filter = BuildFilterEq(context, "author_id", (long) user.Id);
+                filter = BuildTagFilterEq(context, "author_id", (long)user.Id);
             else
-                filter = BuildFilterEq(context, "author_id", (long) context.User.Id);
+                filter = BuildTagFilterEq(context, "author_id", (long)context.User.Id);
 
             // use whichever filter to collect results from database as list of tags
             var dbResponse = await tagCollection.FindAsync(filter).Result.ToListAsync();
@@ -168,7 +146,7 @@ namespace Doccer_Bot.Services
             var tagCollection = database.GetCollection<Tag>("tags");
 
             // filter by name, search for passed tag name, get first tag matching filter
-            var filter = BuildFilterEq(context, "name", tagName);
+            var filter = BuildTagFilterEq(context, "name", tagName);
             var tagExists = tagCollection.FindAsync(filter).Result.Any();
 
             if (tagExists)
@@ -188,7 +166,7 @@ namespace Doccer_Bot.Services
                 Name = tagName,
                 Text = content,
                 Description = "",
-                AuthorId = (long) context.User.Id,
+                AuthorId = (long)context.User.Id,
                 ServerId = (long)context.Guild.Id,
                 Global = false,
                 DateAdded = DateTime.Now,
@@ -198,7 +176,7 @@ namespace Doccer_Bot.Services
             var database = _mongodb.GetDatabase(_mongodbName);
             var tagCollection = database.GetCollection<Tag>("tags");
 
-            var filter = BuildFilterEq(context, "name", newTag.Name);
+            var filter = BuildTagFilterEq(context, "name", newTag.Name);
             var tagExists = tagCollection.FindAsync(filter).Result.Any();
 
             if (!tagExists)
@@ -219,16 +197,16 @@ namespace Doccer_Bot.Services
             var database = _mongodb.GetDatabase(_mongodbName);
             var tagCollection = database.GetCollection<Tag>("tags");
 
-            var filter = BuildFilterEq(context, "name", tagName);
+            var filter = BuildTagFilterEq(context, "name", tagName);
             var tagExists = tagCollection.FindAsync(filter).Result.Any();
 
             if (tagExists)
             {
                 // get tag's author
                 var tag = await tagCollection.FindAsync(filter).Result.FirstOrDefaultAsync();
-                
+
                 // check if calling user has permission to modify the tag
-                if (CheckUserPermission(context, tag))
+                if (CheckTagUserPermission(context, tag))
                 {
                     await tagCollection.DeleteOneAsync(filter);
                     return 2; // success, tag was deleted 
@@ -246,7 +224,7 @@ namespace Doccer_Bot.Services
             var database = _mongodb.GetDatabase(_mongodbName);
             var tagCollection = database.GetCollection<Tag>("tags");
 
-            var filter = BuildFilterEq(context, "name", tagName);
+            var filter = BuildTagFilterEq(context, "name", tagName);
             var tagExists = tagCollection.FindAsync(filter).Result.Any();
 
             if (tagExists)
@@ -255,7 +233,7 @@ namespace Doccer_Bot.Services
                 var tag = await tagCollection.FindAsync(filter).Result.FirstOrDefaultAsync();
 
                 // check if calling user has permission to modify the tag
-                if (CheckUserPermission(context, tag))
+                if (CheckTagUserPermission(context, tag))
                 {
                     // stage change to tag
                     var update = Builders<Tag>.Update.Set(key, value);
@@ -272,80 +250,110 @@ namespace Doccer_Bot.Services
             return 0; // 0 = failed, tag does not exist
         }
 
-        // returns a built filter that matches any documents that are accessible by the current server
+        // returns a built filter that matches any tags that are accessible by the current server
         // this function is for eq(key, value) filters
-        private FilterDefinition<Tag> BuildFilterEq(SocketCommandContext context, string key, dynamic value)
+        private FilterDefinition<Tag> BuildTagFilterEq(SocketCommandContext context, string key, dynamic value)
         {
-            // filter where following conditions are satisfied:
-            // both = true: 
-            //     either are true:
-            //         global is true
-            //         server_id is the calling server id
-            //     key:value pair matches document in database
-
+            FilterDefinition<Tag> filter;
             var builder = Builders<Tag>.Filter;
 
-            var filter = builder.And(
-                builder.Or(
-                    builder.Eq("global", true),
-                    builder.Eq("server_id", (long) context.Guild.Id)
-                ),
-                builder.Eq(key, value)
-            );
+            // if sudo mode enabled & calling user is in sudoers list, return all matching tags
+            // else, return only global tags and tags made in this server
+            if (_databaseSudo._sudoersList.Contains(context.User) && _databaseSudo.IsUserSudoer(context))
+            {
+                filter = builder.Eq(key, value);
+            }
+            else
+            {
+                // filter where following conditions are satisfied:
+                // both = true: 
+                //     either are true:
+                //         global is true
+                //         server_id is the calling server id
+                //     key:value pair matches document in database
+
+                filter = builder.And(
+                    builder.Or(
+                        builder.Eq("global", true),
+                        builder.Eq("server_id", (long)context.Guild.Id)
+                    ),
+                    builder.Eq(key, value)
+                );
+            }
 
             return filter;
         }
 
-        // returns a built filter that matches any documents that are accessible by the current server
+        // returns a built filter that matches any tags that are accessible by the current server
         // this function is for regex (key, value) filters
-        private FilterDefinition<Tag> BuildFilterRegex(SocketCommandContext context, string key, dynamic value)
+        private FilterDefinition<Tag> BuildTagFilterRegex(SocketCommandContext context, string key, dynamic value)
         {
-            // filter where following conditions are satisfied:
-            // both = true: 
-            //     either are true:
-            //         global is true
-            //         server_id is the calling server id
-            //     key:value pair matches document in database
-
+            FilterDefinition<Tag> filter;
             var builder = Builders<Tag>.Filter;
 
-            var filter = builder.And(
-                builder.Or(
-                    builder.Eq("global", true),
-                    builder.Eq("server_id", (long)context.Guild.Id)
-                ),
-                builder.Regex(key, value)
-            );
+            // if sudo mode enabled & calling user is in sudoers list, return all matching tags
+            // else, return only global tags and tags made in this server
+            if (_databaseSudo._sudoersList.Contains(context.User) && _databaseSudo.IsUserSudoer(context))
+            {
+                filter = builder.Regex(key, value);
+            }
+            else
+            {
+                // filter where following conditions are satisfied:
+                // both = true: 
+                //     either are true:
+                //         global is true
+                //         server_id is the calling server id
+                //     key:value pair matches document in database
+
+                filter = builder.And(
+                    builder.Or(
+                        builder.Eq("global", true),
+                        builder.Eq("server_id", (long)context.Guild.Id)
+                    ),
+                    builder.Regex(key, value)
+                );
+            }
 
             return filter;
         }
 
-        // returns a built filter that matches any documents that are accessible by the current server
+        // returns a built filter that matches any tags that are accessible by the current server
         // this function is for empty filters (return everything)
-        private FilterDefinition<Tag> BuildFilterEmpty(SocketCommandContext context)
+        private FilterDefinition<Tag> BuildTagFilterEmpty(SocketCommandContext context)
         {
-            // filter where following conditions are satisfied:
-            // both = true: 
-            //     either are true:
-            //         global is true
-            //         server_id is the calling server id
-            //     empty (get all documents)
-
+            FilterDefinition<Tag> filter;
             var builder = Builders<Tag>.Filter;
 
-            var filter = builder.And(
-                builder.Or(
-                    builder.Eq("global", true),
-                    builder.Eq("server_id", (long)context.Guild.Id)
-                ),
-                builder.Empty
-            );
+            // if sudo mode enabled & calling user is in sudoers list, return all matching tags
+            // else, return only global tags and tags made in this server
+            if (_databaseSudo._sudoersList.Contains(context.User) && _databaseSudo.IsUserSudoer(context))
+            {
+                filter = builder.Empty;
+            }
+            else
+            {
+                // filter where following conditions are satisfied:
+                // both = true: 
+                //     either are true:
+                //         global is true
+                //         server_id is the calling server id
+                //     empty (get all documents)
+
+                filter = builder.And(
+                    builder.Or(
+                        builder.Eq("global", true),
+                        builder.Eq("server_id", (long)context.Guild.Id)
+                    ),
+                    builder.Empty
+                );
+            }
 
             return filter;
         }
 
         // check if the calling user is either the author of the passed tag or if the calling user is an administrator
-        private bool CheckUserPermission(SocketCommandContext context, Tag tag)
+        private bool CheckTagUserPermission(SocketCommandContext context, Tag tag)
         {
             var author = (ulong)tag.AuthorId;
             // get calling user in context of calling guild
