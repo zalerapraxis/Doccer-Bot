@@ -49,7 +49,6 @@ namespace Doccer_Bot.Modules
         [Command("meme", RunMode = RunMode.Async)]
         [Summary("Posts a copypasta - returns a list of all stored copypasta if left blank")]
         [Example("meme {memename}")]
-        [RequireBotPermission(ChannelPermission.ManageMessages)]
         public async Task PostMemeCommandAsync([Remainder]string query = null)
         {
             var memes = await DatabaseService.GetTextMemes();
