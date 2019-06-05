@@ -197,7 +197,7 @@ namespace Doccer_Bot.Services
         public async Task<MarketAPIRequestFailureStatus> GetCompanionApiStatus()
         {
             // run test query
-            var apiResponse = QueryCustomApiForListings(5, "gilgamesh").Result;
+            var apiResponse = await QueryCustomApiForHistory(5, "gilgamesh");
 
             // if apiresponse does not return a status type, then it should be running fine
             if (apiResponse.GetType() != typeof(MarketAPIRequestFailureStatus))
@@ -219,19 +219,25 @@ namespace Doccer_Bot.Services
                 {
                     dynamic apiResponse = await $"{_customMarketApiUrl}/market/?id={itemId}&server={server}".GetJsonAsync();
 
-                    // check if custom API handled error
-                    if (apiResponse.GetType() == typeof(MarketAPIRequestFailureStatus))
+                    if (apiResponse == null)
+                        return MarketAPIRequestFailureStatus.APIFailure;
+
+                    // check if custom API handled error - get apiResponse as dict of keyvalue pairs
+                    // if the dict contains 'Error' key, it's a handled error
+                    if (((IDictionary<String, object>)apiResponse).ContainsKey("Error"))
                     {
-                        if (apiResponse == "Not logged in")
+                        if (apiResponse.Error == null)
+                            return MarketAPIRequestFailureStatus.APIFailure;
+                        if (apiResponse.Error == "Not logged in")
                             return MarketAPIRequestFailureStatus.NotLoggedIn;
-                        if (apiResponse == "Under maintenance")
+                        if (apiResponse.Error == "Under maintenance")
                             return MarketAPIRequestFailureStatus.UnderMaintenance;
-                        if (apiResponse == "Access denied")
+                        if (apiResponse.Error == "Access denied")
                             return MarketAPIRequestFailureStatus.AccessDenied;
-                        if (apiResponse == "Service unavailable")
+                        if (apiResponse.Error == "Service unavailable")
                             return MarketAPIRequestFailureStatus.ServiceUnavailable;
                     }
-                    
+
                     // check if results are null or empty
                     if (apiResponse.Prices == null || apiResponse.Prices.Count == 0)
                         return MarketAPIRequestFailureStatus.NoResults;
@@ -263,16 +269,22 @@ namespace Doccer_Bot.Services
                 {
                     dynamic apiResponse = await $"{_customMarketApiUrl}/market/history.php?id={itemId}&server={server}".GetJsonAsync();
 
-                    // check if custom API handled error
-                    if (apiResponse.GetType() == typeof(MarketAPIRequestFailureStatus))
+                    if (apiResponse == null)
+                        return MarketAPIRequestFailureStatus.APIFailure;
+
+                    // check if custom API handled error - get apiResponse as dict of keyvalue pairs
+                    // if the dict contains 'Error' key, it's a handled error
+                    if (((IDictionary<String, object>)apiResponse).ContainsKey("Error"))
                     {
-                        if (apiResponse == "Not logged in")
+                        if (apiResponse.Error == null)
+                            return MarketAPIRequestFailureStatus.APIFailure;
+                        if (apiResponse.Error == "Not logged in")
                             return MarketAPIRequestFailureStatus.NotLoggedIn;
-                        if (apiResponse == "Under maintenance")
+                        if (apiResponse.Error == "Under maintenance")
                             return MarketAPIRequestFailureStatus.UnderMaintenance;
-                        if (apiResponse == "Access denied")
+                        if (apiResponse.Error == "Access denied")
                             return MarketAPIRequestFailureStatus.AccessDenied;
-                        if (apiResponse == "Service unavailable")
+                        if (apiResponse.Error == "Service unavailable")
                             return MarketAPIRequestFailureStatus.ServiceUnavailable;
                     }
 
