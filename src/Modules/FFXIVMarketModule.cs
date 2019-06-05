@@ -55,7 +55,8 @@ namespace Doccer_Bot.Modules
 
             // try to get server name from the given text
             var server = MarketService.ServerList.Where(searchTerm.Contains).FirstOrDefault();
-            // if server's not null, remove server name from the text
+            // if server's not null, user provided a specific server
+            // remove server name from the text
             if (server != null)
                 searchTerm = searchTerm.Replace($"{server} ", "");
 
@@ -144,48 +145,78 @@ namespace Doccer_Bot.Modules
 
             // format market data & display
 
-            StringBuilder sbPriceQuantityColumn = new StringBuilder();
-            StringBuilder sbQualityColumn = new StringBuilder();
-            StringBuilder sbServerColumn = new StringBuilder();
+            var pages = new List<PaginatedMessage.Page>();
 
-            EmbedBuilder ebMarketListings = new EmbedBuilder();
+            var i = 0;
+            var itemsPerPage = 12;
 
-            // remove anything past the first 20 entries
-            if (marketQueryResults.Count > 20)
-                marketQueryResults.RemoveRange(20, marketQueryResults.Count - 20);
-
-            // populate each stringbuilder
-            foreach (var listing in marketQueryResults)
+            // iterate through the market results, making a page for every (up to) itemsPerPage listings
+            while (i < marketQueryResults.Count)
             {
-                // for individual lines in sbPriceQuantityColumn - we want it to always be empty on each iteration
-                StringBuilder sbPriceQuantityLine = new StringBuilder();
+                // pull up to 20 entries from the list, skipping any from previous iterations
+                var currentPageMarketList = marketQueryResults.Skip(i).Take(itemsPerPage);
 
-                // build line for pricequantity column, so we can omit quantity if it equals 1
-                sbPriceQuantityLine.Append(listing.CurrentPrice);
-                if (listing.Quantity > 1)
-                    sbPriceQuantityLine.Append($" x{listing.Quantity}");
-                
-                sbPriceQuantityColumn.AppendLine($"{sbPriceQuantityLine}");
-                sbQualityColumn.AppendLine($"{listing.IsHq}");
-                sbServerColumn.AppendLine($"{listing.Server}");
+                StringBuilder sbListing = new StringBuilder();
+
+                // build data for this page
+                foreach (var listing in currentPageMarketList)
+                {
+                    sbListing.Append($"**{listing.Quantity}** ");
+
+                    if (listing.IsHq)
+                        sbListing.Append("**HQ** ");
+
+                    if (listing.Quantity > 1)
+                        // multiple units
+                        sbListing.Append($"for {listing.CurrentPrice * listing.Quantity} (**{listing.CurrentPrice}** per unit) ");
+                    else // single units
+                        sbListing.Append($"for **{listing.CurrentPrice}** ");
+                    sbListing.AppendLine();
+                    if (server == null)
+                        sbListing.AppendLine($"• Listed on **{listing.Server}**");
+                }
+
+                var page = new PaginatedMessage.Page()
+                {
+                    Fields = new List<EmbedFieldBuilder>()
+                    {
+                        new EmbedFieldBuilder()
+                        {
+                            Name = $"{itemName}",
+                            Value = sbListing
+                        }
+                    }
+                };
+
+                pages.Add(page);
+
+                i = i + itemsPerPage;
             }
 
-            // fields - roll stringbuilders up into fields as columns
-            ebMarketListings.AddField("Price", sbPriceQuantityColumn.ToString(), true);
-            ebMarketListings.AddField("Quality", sbQualityColumn.ToString(), true);
-            ebMarketListings.AddField("Server", sbServerColumn.ToString(), true);
-            
-            // header stuff
-            EmbedAuthorBuilder eaEmbedHeader = new EmbedAuthorBuilder();
-            eaEmbedHeader.WithName($"{marketQueryResults.Count} Market listing(s) for {itemName}");
-            eaEmbedHeader.WithIconUrl(itemIconUrl);
-            ebMarketListings.WithAuthor(eaEmbedHeader);
+            var pager = new PaginatedMessage()
+            {
+                Pages = pages,
+                Author = new EmbedAuthorBuilder()
+                {
+                    Name = $"{marketQueryResults.Count} Market listing(s) for {itemName}",
+                },
+                ThumbnailUrl = itemIconUrl,
+                Color = Color.Blue,
+                Options = new PaginatedAppearanceOptions()
+                {
+                    InformationText = "This is an interactive message. Use the reaction emotes to change pages. Use the :1234: emote and then type a number in chat to go to that page.",
+                }
+            };
 
-            // extras
-            ebMarketListings.WithColor(Color.Blue);
-            ebMarketListings.WithCurrentTimestamp();
-
-            await ReplyAsync(null, false, ebMarketListings.Build());
+            await PagedReplyAsync(pager, new ReactionList()
+            {
+                Forward = true,
+                Backward = true,
+                First = true,
+                Last = true,
+                Info = true,
+                Jump = true,
+            });
         }
 
 
@@ -310,60 +341,77 @@ namespace Doccer_Bot.Modules
                 return;
             }
 
-            // format market data & display
 
-            StringBuilder sbPriceQuantityColumn = new StringBuilder();
-            StringBuilder sbQualityColumn = new StringBuilder();
-            StringBuilder sbServerColumn = new StringBuilder();
-            StringBuilder sbSaleDateColumn = new StringBuilder();
+            // format history data & display
 
-            EmbedBuilder ebHistoryListings = new EmbedBuilder();
+            var pages = new List<PaginatedMessage.Page>();
 
-            // remove anything past the first 20 entries
-            if (historyQueryResults.Count > 20)
-                historyQueryResults.RemoveRange(20, historyQueryResults.Count - 20);
+            var i = 0;
+            var itemsPerPage = 12;
 
-            // populate each stringbuilder
-            foreach (var listing in historyQueryResults)
+            // iterate through the history results, making a page for every (up to) itemsPerPage listings
+            while (i < historyQueryResults.Count)
             {
-                // for individual lines in sbPriceQuantityColumn - we want it to always be empty on each iteration
-                StringBuilder sbPriceQuantityLine = new StringBuilder();
+                // pull up to 20 entries from the list, skipping any from previous iterations
+                var currentPageHistoryList = historyQueryResults.Skip(i).Take(itemsPerPage);
 
-                // build line for pricequantity column, so we can omit quantity if it equals 1
-                sbPriceQuantityLine.Append(listing.SoldPrice);
-                if (listing.Quantity > 1)
-                    sbPriceQuantityLine.Append($" x{listing.Quantity}");
+                StringBuilder sbListing = new StringBuilder();
 
-                sbPriceQuantityColumn.AppendLine($"{sbPriceQuantityLine}");
-                sbQualityColumn.AppendLine($"{listing.IsHq}");
-                sbServerColumn.AppendLine($"{listing.Server}");
-                sbSaleDateColumn.AppendLine($"{listing.SaleDate}");
+                // build data for this page
+                foreach (var listing in currentPageHistoryList)
+                {
+                    sbListing.Append($"**{listing.Quantity}** ");
+
+                    if (listing.IsHq)
+                        sbListing.Append("**HQ** ");
+
+                    if (listing.Quantity > 1)
+                        // multiple units
+                        sbListing.Append($"for {listing.SoldPrice * listing.Quantity} (**{listing.SoldPrice}** per unit) ");
+                    else // single units
+                        sbListing.Append($"for **{listing.SoldPrice}** ");
+                    sbListing.AppendLine();
+                    if (server == null)
+                        sbListing.AppendLine($"• Sold on **{listing.Server}** at {listing.SaleDate}");
+                }
+
+                var page = new PaginatedMessage.Page()
+                {
+                    Fields = new List<EmbedFieldBuilder>()
+                    {
+                        new EmbedFieldBuilder()
+                        {
+                            Name = $"{itemName}",
+                            Value = sbListing
+                        }
+                    }
+                };
+
+                pages.Add(page);
+
+                i = i + itemsPerPage;
             }
 
-            // fields - roll stringbuilders up into fields as columns
-            ebHistoryListings.AddField("Price", sbPriceQuantityColumn.ToString(), true);
-            ebHistoryListings.AddField("Sale date", sbSaleDateColumn.ToString(), true);
-            
-            // if server was provided by user, remove server column and add quality column
-            if (server != null)
+            var pager = new PaginatedMessage()
             {
-                ebHistoryListings.Title = server;
-                ebHistoryListings.AddField("Quality", sbQualityColumn.ToString(), true);
-            }
-            else
-                ebHistoryListings.AddField("Server", sbServerColumn.ToString(), true);
+                Pages = pages,
+                Author = new EmbedAuthorBuilder()
+                {
+                    Name = $"{historyQueryResults.Count} History listing(s) for {itemName}",
+                },
+                ThumbnailUrl = itemIconUrl,
+                Color = Color.Blue
+            };
 
-            // header stuff
-            EmbedAuthorBuilder eaEmbedHeader = new EmbedAuthorBuilder();
-            eaEmbedHeader.WithName($"{historyQueryResults.Count} History listing(s) for {itemName}");
-            eaEmbedHeader.WithIconUrl(itemIconUrl);
-            ebHistoryListings.WithAuthor(eaEmbedHeader);
-
-            // extras
-            ebHistoryListings.WithColor(Color.Blue);
-            ebHistoryListings.WithCurrentTimestamp();
-
-            await ReplyAsync(null, false, ebHistoryListings.Build());
+            await PagedReplyAsync(pager, new ReactionList()
+            {
+                Forward = true,
+                Backward = true,
+                First = true,
+                Last = true,
+                Info = true,
+                Jump = true
+            });
         }
 
 
