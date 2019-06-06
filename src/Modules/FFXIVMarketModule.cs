@@ -81,19 +81,17 @@ namespace Doccer_Bot.Modules
                 // response is either a ordereddictionary of keyvaluepairs, or null
                 var itemIdQueryResult = await MarketService.SearchForItemByName(searchTerm);
 
-                // various checks to see if inputs are messed up or no results found
-
                 // no results
                 if (itemIdQueryResult.Count == 0)
                 {
-                    await ReplyAsync("No results found. Try to expand your search terms, or check for typos.");
+                    await ReplyAsync("No tradable items found. Try to expand your search terms, or check for typos. ");
                     return;
                 }
 
                 // too many results
                 if (itemIdQueryResult.Count > 10)
                 {
-                    await ReplyAsync("Too many results found. Try to narrow down your search terms.");
+                    await ReplyAsync($"Too many results found ({itemIdQueryResult.Count}). Try to narrow down your search terms.");
                     return;
                 }
 
@@ -106,6 +104,7 @@ namespace Doccer_Bot.Modules
                     return;
                 }
 
+                // if only one result was found, select it and continue without any prompts
                 if (itemIdQueryResult.Count == 1)
                 {
                     itemId = itemIdQueryResult[0].ID;
@@ -115,7 +114,7 @@ namespace Doccer_Bot.Modules
             // get the item name & assign it
             var itemDetailsQueryResult = await MarketService.QueryXivapiWithItemId(itemId);
 
-            // no results
+            // no results - should only trigger if user inputs a bad itemID
             if (itemDetailsQueryResult.GetType() == typeof(MarketAPIRequestFailureStatus) && itemDetailsQueryResult == MarketAPIRequestFailureStatus.NoResults)
             {
                 await ReplyAsync("The item ID you provided doesn't correspond to any items. Try searching by item name instead.");
@@ -132,7 +131,7 @@ namespace Doccer_Bot.Modules
             if (marketQueryResults.Count == 0)
             {
                 await ReplyAsync(
-                    "No listings found for that item. Either nobody's selling it, or it's not marketable.");
+                    "No listings found for that item. Either nobody's selling it, or it's not tradable.");
                 return;
             }
 
@@ -154,7 +153,7 @@ namespace Doccer_Bot.Modules
                 // build data for this page
                 foreach (var listing in currentPageMarketList)
                 {
-                    sbListing.Append($"**{listing.Quantity}** ");
+                    sbListing.Append($"• **{listing.Quantity}** ");
 
                     if (listing.IsHq)
                         sbListing.Append("**HQ** ");
@@ -164,9 +163,9 @@ namespace Doccer_Bot.Modules
                         sbListing.Append($"for {listing.CurrentPrice * listing.Quantity} (**{listing.CurrentPrice}** per unit) ");
                     else // single units
                         sbListing.Append($"for **{listing.CurrentPrice}** ");
-                    sbListing.AppendLine();
                     if (server == null)
-                        sbListing.AppendLine($"• Listed on **{listing.Server}**");
+                        sbListing.Append($"on **{listing.Server}**");
+                    sbListing.AppendLine();
                 }
 
                 var page = new PaginatedMessage.Page()
@@ -278,6 +277,13 @@ namespace Doccer_Bot.Modules
                     return;
                 }
 
+                // too many results
+                if (itemIdQueryResult.Count > 10)
+                {
+                    await ReplyAsync($"Too many results found ({itemIdQueryResult.Count}). Try to narrow down your search terms.");
+                    return;
+                }
+
                 // if more than one result was found, send the results to the selection function to narrow it down to one
                 // terminate this function, as the selection function will eventually re-call this method with a single result item
                 if (itemIdQueryResult.Count > 1)
@@ -286,6 +292,7 @@ namespace Doccer_Bot.Modules
                     return;
                 }
 
+                // if only one result was found, select it and continue without any prompts
                 if (itemIdQueryResult.Count == 1)
                 {
                     itemId = itemIdQueryResult[0].ID;
@@ -322,7 +329,7 @@ namespace Doccer_Bot.Modules
             var pages = new List<PaginatedMessage.Page>();
 
             var i = 0;
-            var itemsPerPage = 12;
+            var itemsPerPage = 10;
 
             // iterate through the history results, making a page for every (up to) itemsPerPage listings
             while (i < historyQueryResults.Count)
@@ -335,7 +342,7 @@ namespace Doccer_Bot.Modules
                 // build data for this page
                 foreach (var listing in currentPageHistoryList)
                 {
-                    sbListing.Append($"**{listing.Quantity}** ");
+                    sbListing.Append($"• **{listing.Quantity}** ");
 
                     if (listing.IsHq)
                         sbListing.Append("**HQ** ");
@@ -346,8 +353,11 @@ namespace Doccer_Bot.Modules
                     else // single units
                         sbListing.Append($"for **{listing.SoldPrice}** ");
                     sbListing.AppendLine();
+                    sbListing.Append("››› Sold ");
                     if (server == null)
-                        sbListing.AppendLine($"• Sold on **{listing.Server}** at {listing.SaleDate}");
+                        sbListing.Append($"on **{listing.Server}** ");
+                    sbListing.Append($"at {listing.SaleDate}");
+                    sbListing.AppendLine();
                 }
 
                 var page = new PaginatedMessage.Page()
