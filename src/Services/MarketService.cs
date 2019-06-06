@@ -359,8 +359,8 @@ namespace Doccer_Bot.Services
                 }
                 catch (FlurlHttpException exception)
                 {
-                    // check if no results - flurl sees XIVAPI respond with a 'code 404' so it'll throw an exception
-                    // so we can't check the response body for its contents like we can the custom API
+                    // check if no results - flurl sees XIVAPI respond with a 'code 404' if it can't find an item
+                    // so it'll throw an exception - we can't check the response body for its contents like we can the custom API
                     if (exception.Call.HttpStatus == HttpStatusCode.NotFound)
                         return MarketAPIRequestFailureStatus.NoResults;
 
