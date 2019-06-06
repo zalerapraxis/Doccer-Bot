@@ -31,43 +31,81 @@ namespace Doccer_Bot.Modules
             // response is either a ordereddictionary of keyvaluepairs, or null
             var itemSearchResults = await MarketService.SearchForItemByName(searchTerm);
 
-            // api failure on our end
-            if (itemSearchResults.GetType() == typeof(MarketAPIRequestFailureStatus) && itemSearchResults == MarketAPIRequestFailureStatus.APIFailure)
-            {
-                await ReplyAsync($"Request failed, try again. If this keeps happening, let {Context.Guild.GetUser(110866678161645568).Mention} know.");
-                return;
-            }
-
             // no results
-            if (itemSearchResults.GetType() == typeof(MarketAPIRequestFailureStatus) && itemSearchResults.Count == MarketAPIRequestFailureStatus.NoResults)
+            if (itemSearchResults.Count == 0)
             {
                 await ReplyAsync("No results found. Try to expand your search terms, or check for typos.");
                 return;
             }
 
-            if (itemSearchResults.Count > 20)
+            var pages = new List<PaginatedMessage.Page>();
+
+            var i = 0;
+            var itemsPerPage = 12;
+
+            // iterate through the market results, making a page for every (up to) itemsPerPage listings
+            while (i < itemSearchResults.Count)
             {
-                await ReplyAsync("Too many results returned - try narrowing down your search terms.");
-                return;
+                // pull up to itemsPerPage entries from the list, skipping any from previous iterations
+                var currentPageItemSearchResultsList = itemSearchResults.Skip(i).Take(itemsPerPage);
+
+                StringBuilder sbListingName = new StringBuilder();
+                StringBuilder sbListingId = new StringBuilder();
+
+                // build data for this page
+                foreach (var item in currentPageItemSearchResultsList)
+                {
+                    sbListingName.AppendLine(item.Name);
+                    sbListingId.AppendLine(item.ID.ToString());
+                }
+
+                var page = new PaginatedMessage.Page()
+                {
+                    Fields = new List<EmbedFieldBuilder>()
+                    {
+                        new EmbedFieldBuilder()
+                        {
+                            Name = "Name",
+                            Value = sbListingName,
+                            IsInline = true
+                        },
+                        new EmbedFieldBuilder()
+                        {
+                            Name = "ID",
+                            Value = sbListingId,
+                            IsInline = true
+                        }
+                    }
+                };
+
+                pages.Add(page);
+
+                i = i + itemsPerPage;
             }
 
-            StringBuilder sbNameColumn = new StringBuilder();
-            StringBuilder sbItemIdColumn = new StringBuilder();
-
-            EmbedBuilder ebSearchResults = new EmbedBuilder();
-
-            foreach (var item in itemSearchResults)
+            var pager = new PaginatedMessage()
             {
-                sbNameColumn.AppendLine(item.Key.ToString());
-                sbItemIdColumn.AppendLine(item.Value.ToString());
-            }
+                Pages = pages,
+                Author = new EmbedAuthorBuilder()
+                {
+                    Name = $"{itemSearchResults.Count} result(s) for \"{searchTerm}\"",
+                },
+                Color = Color.Blue,
+                Options = new PaginatedAppearanceOptions()
+                {
+                    InformationText = "This is an interactive message. Use the reaction emotes to change pages. Use the :1234: emote and then type a number in chat to go to that page.",
+                }
+            };
 
-            ebSearchResults.AddField("Name", sbNameColumn.ToString(), true);
-            ebSearchResults.AddField("ID", sbItemIdColumn.ToString(), true);
-            ebSearchResults.WithColor(Color.Blue);
-            ebSearchResults.WithCurrentTimestamp();
-
-            await ReplyAsync(null, false, ebSearchResults.Build());
+            await PagedReplyAsync(pager, new ReactionList()
+            {
+                Forward = true,
+                Backward = true,
+                First = true,
+                Last = true,
+                Info = true,
+                Jump = true,
+            });
         }
     }
 }

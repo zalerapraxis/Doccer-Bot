@@ -9,6 +9,7 @@ using Discord;
 using Discord.Addons.Interactive;
 using Discord.Commands;
 using Doccer_Bot.Entities;
+using Doccer_Bot.Models;
 using Doccer_Bot.Modules.Common;
 using Doccer_Bot.Services;
 using Flurl.Util;
@@ -82,23 +83,24 @@ namespace Doccer_Bot.Modules
 
                 // various checks to see if inputs are messed up or no results found
 
-                // api failure on our end
-                if (itemIdQueryResult.GetType() == typeof(MarketAPIRequestFailureStatus) && itemIdQueryResult == MarketAPIRequestFailureStatus.APIFailure)
-                {
-                    await ReplyAsync($"Request failed, try again. If this keeps happening, let {Context.Guild.GetUser(110866678161645568).Mention} know.");
-                    return;
-                }
-
                 // no results
-                if (itemIdQueryResult.GetType() == typeof(MarketAPIRequestFailureStatus) && itemIdQueryResult.Count == MarketAPIRequestFailureStatus.NoResults)
+                if (itemIdQueryResult.Count == 0)
                 {
                     await ReplyAsync("No results found. Try to expand your search terms, or check for typos.");
                     return;
                 }
 
+                // too many results
+                if (itemIdQueryResult.Count > 10)
+                {
+                    await ReplyAsync("Too many results found. Try to narrow down your search terms.");
+                    return;
+                }
+
                 // if more than one result was found, send the results to the selection function to narrow it down to one
                 // terminate this function, as the selection function will eventually re-call this method with a single result item
-                if (itemIdQueryResult.Count > 1)
+                // 10 is the max number of items we can use interactiveuserselectitem with
+                if (itemIdQueryResult.Count > 1 && itemIdQueryResult.Count < 10) 
                 {
                     await InteractiveUserSelectItem(itemIdQueryResult, "market", server);
                     return;
@@ -106,24 +108,15 @@ namespace Doccer_Bot.Modules
 
                 if (itemIdQueryResult.Count == 1)
                 {
-                    itemId = itemIdQueryResult[0];
+                    itemId = itemIdQueryResult[0].ID;
                 }
             }
 
             // get the item name & assign it
             var itemDetailsQueryResult = await MarketService.QueryXivapiWithItemId(itemId);
 
-            // various checks to see if inputs are messed up or no results found
-
-            // api failure on our end
-            if (itemDetailsQueryResult.GetType() == typeof(MarketAPIRequestFailureStatus) && itemDetailsQueryResult == MarketAPIRequestFailureStatus.APIFailure)
-            {
-                await ReplyAsync($"Request failed, try again. If this keeps happening, let {Context.Guild.GetUser(110866678161645568).Mention} know.");
-                return;
-            }
-
             // no results
-            if (itemDetailsQueryResult.GetType() == typeof(MarketAPIRequestFailureStatus) && itemDetailsQueryResult.Count == MarketAPIRequestFailureStatus.NoResults)
+            if (itemDetailsQueryResult.GetType() == typeof(MarketAPIRequestFailureStatus) && itemDetailsQueryResult == MarketAPIRequestFailureStatus.NoResults)
             {
                 await ReplyAsync("The item ID you provided doesn't correspond to any items. Try searching by item name instead.");
                 return;
@@ -153,7 +146,7 @@ namespace Doccer_Bot.Modules
             // iterate through the market results, making a page for every (up to) itemsPerPage listings
             while (i < marketQueryResults.Count)
             {
-                // pull up to 20 entries from the list, skipping any from previous iterations
+                // pull up to itemsPerPage entries from the list, skipping any from previous iterations
                 var currentPageMarketList = marketQueryResults.Skip(i).Take(itemsPerPage);
 
                 StringBuilder sbListing = new StringBuilder();
@@ -278,17 +271,8 @@ namespace Doccer_Bot.Modules
                 // response is either a ordereddictionary of keyvaluepairs, or null
                 var itemIdQueryResult = await MarketService.SearchForItemByName(searchTerm);
 
-                // various checks to see if inputs are messed up or no results found
-
-                // api failure on our end
-                if (itemIdQueryResult.GetType() == typeof(MarketAPIRequestFailureStatus) && itemIdQueryResult == MarketAPIRequestFailureStatus.APIFailure)
-                {
-                    await ReplyAsync($"Request failed, try again. If this keeps happening, let {Context.Guild.GetUser(110866678161645568).Mention} know.");
-                    return;
-                }
-
                 // no results
-                if (itemIdQueryResult.GetType() == typeof(MarketAPIRequestFailureStatus) && itemIdQueryResult.Count == MarketAPIRequestFailureStatus.NoResults)
+                if (itemIdQueryResult.Count == 0)
                 {
                     await ReplyAsync("No results found. Try to expand your search terms, or check for typos.");
                     return;
@@ -304,24 +288,15 @@ namespace Doccer_Bot.Modules
 
                 if (itemIdQueryResult.Count == 1)
                 {
-                    itemId = itemIdQueryResult[0];
+                    itemId = itemIdQueryResult[0].ID;
                 }
             }
 
             // get the item name & assign it
             var itemDetailsQueryResult = await MarketService.QueryXivapiWithItemId(itemId);
 
-            // various checks to see if inputs are messed up or no results found
-
-            // api failure on our end
-            if (itemDetailsQueryResult.GetType() == typeof(MarketAPIRequestFailureStatus) && itemDetailsQueryResult == MarketAPIRequestFailureStatus.APIFailure)
-            {
-                await ReplyAsync($"Request failed, try again. If this keeps happening, let {Context.Guild.GetUser(110866678161645568).Mention} know.");
-                return;
-            }
-
             // no results
-            if (itemDetailsQueryResult.GetType() == typeof(MarketAPIRequestFailureStatus) && itemDetailsQueryResult.Count == MarketAPIRequestFailureStatus.NoResults)
+            if (itemDetailsQueryResult.GetType() == typeof(MarketAPIRequestFailureStatus) && itemDetailsQueryResult == MarketAPIRequestFailureStatus.NoResults)
             {
                 await ReplyAsync("The item ID you provided doesn't correspond to any items. Try searching by item name instead.");
                 return;
@@ -352,7 +327,7 @@ namespace Doccer_Bot.Modules
             // iterate through the history results, making a page for every (up to) itemsPerPage listings
             while (i < historyQueryResults.Count)
             {
-                // pull up to 20 entries from the list, skipping any from previous iterations
+                // pull up to itemsPerPage entries from the list, skipping any from previous iterations
                 var currentPageHistoryList = historyQueryResults.Skip(i).Take(itemsPerPage);
 
                 StringBuilder sbListing = new StringBuilder();
@@ -420,7 +395,7 @@ namespace Doccer_Bot.Modules
         // it's expected that this function will be the last call in a function before that terminates, and that the callback function
         // will re-run the function with the user-selected data
         // optional server parameter to preserve server filter option
-        private async Task InteractiveUserSelectItem(OrderedDictionary itemsDictionary, string functionToCall, string server = null)
+        private async Task InteractiveUserSelectItem(List<ItemSearchResult> itemsList, string functionToCall, string server = null)
         {
             string[] numbers = new[] { "0⃣", "1⃣", "2⃣", "3⃣", "4⃣", "5⃣", "6⃣", "7⃣", "8⃣", "9⃣" };
             var numberEmojis = new List<Emoji>();
@@ -429,13 +404,13 @@ namespace Doccer_Bot.Modules
             StringBuilder stringBuilder = new StringBuilder();
 
             // add the number of emojis we need to the emojis list, and build our string-list of search results
-            for (int i = 0; i < itemsDictionary.Count && i < numbers.Length; i++)
+            for (int i = 0; i < itemsList.Count && i < numbers.Length; i++)
             {
                 numberEmojis.Add(new Emoji(numbers[i]));
                 // get key for this dictionaryentry at index
-                var itemsDictionaryEntry = itemsDictionary.Cast<DictionaryEntry>().ElementAt(i);
+                var itemsDictionaryName = itemsList[i].Name;
 
-                stringBuilder.AppendLine($"{numbers[i]} - {itemsDictionaryEntry.Key}");
+                stringBuilder.AppendLine($"{numbers[i]} - {itemsDictionaryName}");
             }
 
             embedBuilder.WithDescription(stringBuilder.ToString());
@@ -445,11 +420,11 @@ namespace Doccer_Bot.Modules
             // reactions will be watched, and the one selected will fire the HandleFindTagReactionResult method, passing
             // that reaction's corresponding tagname and the function passed into this parameter
             var messageContents = new ReactionCallbackData("Did you mean... ", embedBuilder.Build());
-            for (int i = 0; i < itemsDictionary.Count; i++)
+            for (int i = 0; i < itemsList.Count; i++)
             {
                 var counter = i;
-                var itemsDictionaryEntry = itemsDictionary.Cast<DictionaryEntry>().ElementAt(i);
-                messageContents.AddCallBack(numberEmojis[counter], async (c, r) => await HandleInteractiveUserSelectCallback((int) itemsDictionaryEntry.Value, functionToCall, server));
+                var itemsDictionaryID = itemsList[i].ID;
+                messageContents.AddCallBack(numberEmojis[counter], async (c, r) => await HandleInteractiveUserSelectCallback(itemsDictionaryID, functionToCall, server));
                 
             }
 

@@ -54,21 +54,30 @@ namespace Doccer_Bot.Services
         }
 
         // gets list of items, loads them into an ordereddictionary, returns dictionary or null if request failed
-        public async Task<dynamic> SearchForItemByName(string searchTerm)
+        public async Task<List<ItemSearchResult>> SearchForItemByName(string searchTerm)
         {
             var apiResponse = await QueryXivapiWithString(searchTerm);
 
-            if (apiResponse.GetType() != typeof(MarketAPIRequestFailureStatus))
-            {
-                var tempItemList = new OrderedDictionary();
+            var tempItemList = new List<ItemSearchResult>();
 
-                foreach (var item in apiResponse.Results)
-                    tempItemList.Add(item.Name, (int) item.ID);
-
+            // if api failure, return empty list
+            if (apiResponse.GetType() == typeof(MarketAPIRequestFailureStatus) &&
+                apiResponse == MarketAPIRequestFailureStatus.APIFailure)
                 return tempItemList;
-            }
 
-            return null;
+            // if no results, return empty list
+            if (apiResponse.GetType() == typeof(MarketAPIRequestFailureStatus) &&
+                apiResponse == MarketAPIRequestFailureStatus.NoResults)
+                return tempItemList;
+
+            foreach (var item in apiResponse.Results)
+                tempItemList.Add(new ItemSearchResult()
+                {
+                    Name = item.Name,
+                    ID = (int)item.ID
+                });
+
+            return tempItemList;
         }
 
         // take an item id and get the lowest market listings from across all servers, return list of MarketList of MarketItemListings
@@ -317,13 +326,11 @@ namespace Doccer_Bot.Services
             {
                 try
                 {
-                    dynamic apiResponse = await $"https://xivapi.com/search?string={itemName}&indexes=Item&private_key={_xivapiKey}".GetJsonAsync();
+                    dynamic apiResponse = await $"https://xivapi.com/search?string={itemName}&indexes=Item&filters=IsUntradable=0&private_key={_xivapiKey}".GetJsonAsync();
 
-                    // check if no results
-                    if (apiResponse.Results == null || apiResponse.Results.Count == 0)
+                    if (apiResponse.Results.Count == 0)
                         return MarketAPIRequestFailureStatus.NoResults;
 
-                    // otherwise, return what we got
                     return apiResponse;
                 }
                 catch (FlurlHttpException exception)
@@ -348,15 +355,15 @@ namespace Doccer_Bot.Services
                 {
                     dynamic apiResponse = await $"https://xivapi.com/item/{itemId}".GetJsonAsync();
 
-                    // check if no results
-                    if (apiResponse.ToString().Contains("Game Data does not exist"))
-                        return MarketAPIRequestFailureStatus.NoResults;
-
-                    // otherwise, return what we got
                     return apiResponse;
                 }
                 catch (FlurlHttpException exception)
                 {
+                    // check if no results - flurl sees XIVAPI respond with a 'code 404' so it'll throw an exception
+                    // so we can't check the response body for its contents like we can the custom API
+                    if (exception.Call.HttpStatus == HttpStatusCode.NotFound)
+                        return MarketAPIRequestFailureStatus.NoResults;
+
                     await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"{exception.Message}"));
                     await Task.Delay(exceptionRetryDelay);
                 }
