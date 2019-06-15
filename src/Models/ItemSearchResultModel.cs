@@ -4,7 +4,7 @@ using System.Text;
 
 namespace Doccer_Bot.Models
 {
-    public class ItemSearchResult
+    public class ItemSearchResultModel
     {
         public string Name { get; set; }
         public int ID { get; set; }
