@@ -3,8 +3,10 @@ using Discord.WebSocket;
 using Microsoft.Extensions.Configuration;
 using System.Threading.Tasks;
 using System;
+using System.Linq;
 using System.Text;
 using Discord;
+using Doccer_Bot.Modules.Common;
 
 namespace Example
 {
@@ -60,7 +62,8 @@ namespace Example
             // the command failed, let's notify the user that something happened.
             StringBuilder errorBuilder = new StringBuilder();
             errorBuilder.AppendLine($":x: Error: {result}");
-            errorBuilder.Append($":information_source: If you're unsure of what happened, let {_discord.GetUser(110866678161645568).Mention} know.");
+            if (result.Error == CommandError.BadArgCount)
+                errorBuilder.Append($":information_source: The proper syntax for this command is `{command.Value.Attributes.OfType<ExampleAttribute>().FirstOrDefault().ExampleText}`");
             await context.Channel.SendMessageAsync(errorBuilder.ToString());
         }
     }
