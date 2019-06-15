@@ -27,6 +27,21 @@ namespace Doccer_Bot.Modules
         [Example("tag {name}")]
         public async Task TagGetCommandAsync(string tagName)
         {
+            // check if user intended to run a different command but forgot some parameters
+            // since this is the .tag command and other commands use .tag as their base, the bot may
+            // redirect commands to this function, which will cause it to search for the command function
+            // as if it were a tag - catch these and notify the user to check their syntax.
+            // doing it this way so we can keep the base .tag command and have .tag function commands as well
+            List<string> commandCatchFilter = new List<string>()
+            {
+                "add", "remove", "edit", "rename", "describe", "global", "info", "search"
+            };
+            if (commandCatchFilter.Contains(tagName.ToLower()))
+            {
+                await ReplyAsync("You're missing some parts from that command. Check your syntax.");
+                return;
+            }
+            
             var response = await DatabaseTags.GetTagContentsFromDatabase(Context, tagName);
 
             // if we found a response, use it
@@ -46,6 +61,13 @@ namespace Doccer_Bot.Modules
         [Example("tag add {name} {content}")]
         public async Task TagAddCommandAsync(string tagName, [Remainder] string content)
         {
+            if (!content.Any())
+            {
+                await ReplyAsync(
+                    "You did not enter anything to put inside the tag. The syntax is `.tag add name content`.");
+                return;
+            }
+
             var success = await DatabaseTags.AddTagToDatabase(Context, tagName, content);
 
             if (success)
@@ -274,9 +296,9 @@ namespace Doccer_Bot.Modules
 
 
         [Command("tag all", RunMode = RunMode.Async)]
-        [Summary("Get list of all tags, with option to search - tag list (searchterm)")]
+        [Summary("Get list of all tags")]
         [Alias("tags")]
-        public async Task TagGetAllCommandAsync(string search = null)
+        public async Task TagGetAllCommandAsync(string extra = null)
         {
             var results = await DatabaseTags.GetAllTagsFromDatabase(Context);
 
@@ -341,6 +363,15 @@ namespace Doccer_Bot.Modules
             var tagName = args[0];
 
             var searchResponse = await DatabaseTags.SearchTagsInDatabase(Context, tagName);
+
+            // if single result, just use that
+            if (searchResponse.Count == 1)
+            {
+                await RetryCommandUsingFoundTag(searchResponse[0], functionToRetry, args);
+                return;
+            }
+                
+            // if the single-result check didn't catch but there are results
             if (searchResponse.Any())
             {
                 string[] numbers = new[] { "0⃣", "1⃣", "2⃣", "3⃣", "4⃣", "5⃣", "6⃣", "7⃣", "8⃣", "9⃣" };
@@ -388,8 +419,9 @@ namespace Doccer_Bot.Modules
             // grab the calling user's pair of calling user & searchResults embed
             var dictEntry = _dictFindTagUserEmbedPairs.FirstOrDefault(x => x.Key == Context.User);
 
-            // delete the calling user's searchResults embed
-            await dictEntry.Value.DeleteAsync();
+            // delete the calling user's searchResults embed, if it exists
+            if (dictEntry.Key != null)
+                await dictEntry.Value.DeleteAsync();
 
             // pick out the function to retry and pass the original
             // function's arguments back into it with the newly selected tag
