@@ -52,13 +52,13 @@ namespace Doccer_Bot.Services
                     calendarEvent.AlertMessage = oldReminderMessage;
 
                 // get amount of time between the calendarevent start time and the current time
-                var timeDelta = calendarEvent.StartDate - TimezoneAdjustedDateTime.Now.Invoke();
+                var timeStartDelta = calendarEvent.StartDate - TimezoneAdjustedDateTime.Now.Invoke();
 
                 // if it's less than an hour but more than fifteen minutes, and we haven't sent an alert message, send an alert message
-                if (timeDelta.TotalHours < 1 && timeDelta.TotalMinutes > 15)
+                if (timeStartDelta.TotalHours < 1 && timeStartDelta.TotalMinutes > 15)
                 {
                     var messageContents =
-                        $"{calendarEvent.Name} is starting in {(int) timeDelta.TotalMinutes} minutes.";
+                        $"{calendarEvent.Name} is starting in {(int)timeStartDelta.TotalMinutes} minutes.";
 
                     // if there's an alert message already, edit it
                     if (calendarEvent.AlertMessage != null)
@@ -74,7 +74,7 @@ namespace Doccer_Bot.Services
                 }
 
                 // if it's less than an hour and less or equal to fifteen minutes, try to modify an existing alert message or send a new one
-                if (timeDelta.TotalHours < 1 && timeDelta.TotalMinutes <= 15)
+                if (timeStartDelta.TotalHours < 1 && timeStartDelta.TotalMinutes <= 15)
                 {
                     var messageContents = $"{calendarEvent.Name} is starting shortly. Look for a party finder soon.";
 
@@ -91,10 +91,31 @@ namespace Doccer_Bot.Services
                     }
                 }
 
-                // if the event has past, delete the alert and null the event's alertmessage
-                // (nulling the alertmessage is a precautionary thing in case we somehow carry
-                // over a previous calendarEvent entry)
-                if (calendarEvent.StartDate < TimezoneAdjustedDateTime.Now.Invoke())
+                // if the event is currently active (after start date but before end date)
+                // update the alert message to reflect how much time is left until the event is over
+                if (calendarEvent.StartDate < TimezoneAdjustedDateTime.Now.Invoke() &&
+                    calendarEvent.EndDate > TimezoneAdjustedDateTime.Now.Invoke())
+                {
+                    // get amount of time between the current time and the calendarevent end time
+                    var timeEndDelta = calendarEvent.EndDate - TimezoneAdjustedDateTime.Now.Invoke();
+
+                    var messageContents = $"{calendarEvent.Name} is underway, ending in {timeEndDelta.Minutes} minutes.";
+
+                    // if there's an alert message already, edit it
+                    if (calendarEvent.AlertMessage != null)
+                    {
+                        await calendarEvent.AlertMessage.ModifyAsync(m => m.Content = messageContents);
+                    }
+                    // if there wasn't an alert message, send a new message
+                    else
+                    {
+                        var msg = await server.ReminderChannel.SendMessageAsync(messageContents);
+                        calendarEvent.AlertMessage = msg;
+                    }
+                }
+
+                // if the event is almost past, delete the alertmessage
+                if (calendarEvent.EndDate < TimezoneAdjustedDateTime.Now.Invoke() + TimeSpan.FromMinutes(5))
                 {
                     await calendarEvent.AlertMessage.DeleteAsync();
                     calendarEvent.AlertMessage = null;
@@ -170,16 +191,33 @@ namespace Doccer_Bot.Services
             foreach (var calendarEvent in server.Events)
             {
                 // don't add items from the past
-                if (calendarEvent.StartDate < TimezoneAdjustedDateTime.Now.Invoke())
+                if (calendarEvent.EndDate < TimezoneAdjustedDateTime.Now.Invoke())
                     continue;
 
                 // get the time difference between the event and now
-                TimeSpan timeDelta = (calendarEvent.StartDate - TimezoneAdjustedDateTime.Now.Invoke());
+                TimeSpan timeDelta;
 
                 // holy fucking formatting batman
                 StringBuilder stringBuilder = new StringBuilder();
-                stringBuilder.AppendLine($"Starts on {calendarEvent.StartDate,0:M/dd} at {calendarEvent.StartDate,0: h:mm tt} {calendarEvent.Timezone} and ends at {calendarEvent.EndDate,0: h:mm tt} {calendarEvent.Timezone}");
-                stringBuilder.Append(":watch: Starts in ");
+
+                // if event hasn't started yet
+                if (calendarEvent.StartDate > TimezoneAdjustedDateTime.Now.Invoke())
+                {
+                    stringBuilder.AppendLine($"Starts on {calendarEvent.StartDate,0:M/dd} at {calendarEvent.StartDate,0: h:mm tt} {calendarEvent.Timezone} and ends at {calendarEvent.EndDate,0: h:mm tt} {calendarEvent.Timezone}");
+                    stringBuilder.Append(":watch: Starts in ");
+                    timeDelta = calendarEvent.StartDate - TimezoneAdjustedDateTime.Now.Invoke();
+                }
+                    
+                // if event has started but hasn't finished
+                else if (calendarEvent.StartDate < TimezoneAdjustedDateTime.Now.Invoke() &&
+                         calendarEvent.EndDate > TimezoneAdjustedDateTime.Now.Invoke())
+                {
+                    stringBuilder.AppendLine($"Currently underway, ending at {calendarEvent.EndDate,0: h:mm tt} {calendarEvent.Timezone}");
+                    stringBuilder.Append(":watch: Ends in ");
+                    timeDelta = calendarEvent.EndDate - TimezoneAdjustedDateTime.Now.Invoke();
+                }
+
+
                 // days
                 if (timeDelta.Days == 1)
                     stringBuilder.Append($" {timeDelta.Days} day");

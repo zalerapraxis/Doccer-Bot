@@ -143,17 +143,11 @@ namespace Doccer_Bot.Modules
         [Summary("Manually display upcoming events")]
         public async Task CalendarEventsAsync()
         {
-            await ScheduleService.GetEvents(Context);
-        }
-
-        // manually send event reminders
-        [Command("remind")]
-        [Summary("Manually display reminders")]
-        [RequireUserPermission(GuildPermission.Administrator)]
-        public async Task SendEventRemindersAsync()
-        {
             var server = Servers.ServerList.Find(x => x.DiscordServer == Context.Guild);
-            await ScheduleService.HandleReminders(server);
+            if (server != null)
+                await ScheduleService.GetEvents(Context);
+            else
+                await ReplyAsync("This server doesn't have the scheduling system set up, so there are no events to display.");
         }
     }
 }

@@ -160,7 +160,7 @@ namespace Doccer_Bot.Services
             server.Events.Clear();
 
             // if there are events, iterate through and add them to our calendarevents list
-            if ((events?.Count() ?? 0) > 0)
+            if (events.Any())
             {
 
                 foreach (var eventItem in events)
@@ -171,7 +171,7 @@ namespace Doccer_Bot.Services
                     eventItem.End.DateTime = eventItem.End.DateTime - TimeSpan.FromHours(3);
 
                     // don't add items from the past
-                    if (eventItem.Start.DateTime < TimezoneAdjustedDateTime.Now.Invoke())
+                    if (eventItem.End.DateTime < TimezoneAdjustedDateTime.Now.Invoke())
                         continue;
 
                     // build calendar event to be added to our list
