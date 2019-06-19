@@ -204,7 +204,7 @@ namespace Doccer_Bot.Services
                 if (calendarEvent.StartDate > TimezoneAdjustedDateTime.Now.Invoke())
                 {
                     stringBuilder.AppendLine($"Starts on {calendarEvent.StartDate,0:M/dd} at {calendarEvent.StartDate,0: h:mm tt} {calendarEvent.Timezone} and ends at {calendarEvent.EndDate,0: h:mm tt} {calendarEvent.Timezone}");
-                    stringBuilder.Append(":watch: Starts in ");
+                    stringBuilder.Append(":watch: Starts in");
                     timeDelta = calendarEvent.StartDate - TimezoneAdjustedDateTime.Now.Invoke();
                 }
                     
@@ -213,7 +213,7 @@ namespace Doccer_Bot.Services
                          calendarEvent.EndDate > TimezoneAdjustedDateTime.Now.Invoke())
                 {
                     stringBuilder.AppendLine($"Currently underway, ending at {calendarEvent.EndDate,0: h:mm tt} {calendarEvent.Timezone}");
-                    stringBuilder.Append(":watch: Ends in ");
+                    stringBuilder.Append(":watch: Ends in");
                     timeDelta = calendarEvent.EndDate - TimezoneAdjustedDateTime.Now.Invoke();
                 }
 
