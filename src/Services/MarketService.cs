@@ -54,27 +54,36 @@ namespace Doccer_Bot.Services
         }
 
         // gets list of items, loads them into an ordereddictionary, returns dictionary or null if request failed
-        public async Task<dynamic> SearchForItemByName(string searchTerm)
+        public async Task<List<ItemSearchResultModel>> SearchForItemByName(string searchTerm)
         {
             var apiResponse = await QueryXivapiWithString(searchTerm);
 
-            if (apiResponse.GetType() != typeof(MarketAPIRequestFailureStatus))
-            {
-                var tempItemList = new OrderedDictionary();
+            var tempItemList = new List<ItemSearchResultModel>();
 
-                foreach (var item in apiResponse.Results)
-                    tempItemList.Add(item.Name, (int) item.ID);
-
+            // if api failure, return empty list
+            if (apiResponse.GetType() == typeof(MarketAPIRequestFailureStatus) &&
+                apiResponse == MarketAPIRequestFailureStatus.APIFailure)
                 return tempItemList;
-            }
 
-            return null;
+            // if no results, return empty list
+            if (apiResponse.GetType() == typeof(MarketAPIRequestFailureStatus) &&
+                apiResponse == MarketAPIRequestFailureStatus.NoResults)
+                return tempItemList;
+
+            foreach (var item in apiResponse.Results)
+                tempItemList.Add(new ItemSearchResultModel()
+                {
+                    Name = item.Name,
+                    ID = (int)item.ID
+                });
+
+            return tempItemList;
         }
 
         // take an item id and get the lowest market listings from across all servers, return list of MarketList of MarketItemListings
-        public async Task<List<MarketItemListing>> GetMarketListingsFromApi(string itemName, int itemId, string serverFilter = null)
+        public async Task<List<MarketItemListingModel>> GetMarketListingsFromApi(string itemName, int itemId, string serverFilter = null)
         {   
-            List<MarketItemListing> tempMarketList = new List<MarketItemListing>();
+            List<MarketItemListingModel> tempMarketList = new List<MarketItemListingModel>();
 
             // if calling method provided server via serverOption, use that
             // otherwise, search all servers on Aether
@@ -107,7 +116,7 @@ namespace Doccer_Bot.Services
                 foreach (var listing in apiResponse.Prices)
                 {
                     // build a marketlisting with the info we get from method parameters and the api call
-                    var marketListing = new MarketItemListing()
+                    var marketListing = new MarketItemListingModel()
                     {
                         Name = itemName,
                         ItemId = itemId,
@@ -130,9 +139,9 @@ namespace Doccer_Bot.Services
         }
 
         // take an item id and get the lowest market listings from across all servers, return list of MarketList of MarketItemListings
-        public async Task<List<HistoryItemListing>> GetHistoryListingsFromApi(string itemName, int itemId, string serverFilter = null)
+        public async Task<List<HistoryItemListingModel>> GetHistoryListingsFromApi(string itemName, int itemId, string serverFilter = null)
         {
-            List<HistoryItemListing> tempHistoryList = new List<HistoryItemListing>();
+            List<HistoryItemListingModel> tempHistoryList = new List<HistoryItemListingModel>();
 
             // if calling method provided server via serverOption, use that
             // otherwise, search all servers on Aether
@@ -170,7 +179,7 @@ namespace Doccer_Bot.Services
                     var saleDate = epoch.AddMilliseconds(listing.buyRealDate);
 
                     // build a marketlisting with the info we get from method parameters and the api call
-                    var marketListing = new HistoryItemListing()
+                    var marketListing = new HistoryItemListingModel()
                     {
                         Name = itemName,
                         ItemId = itemId,
@@ -207,9 +216,215 @@ namespace Doccer_Bot.Services
             return apiResponse;
         }
 
+        // get item data from XIVAPI using item ID - generally used to get an item's name
+        public async Task<dynamic> QueryXivapiWithItemId(int itemId)
+        { 
+            var i = 0;
+            while (i < exceptionRetryCount)
+            {
+                try
+                {
+                    dynamic apiResponse = await $"https://xivapi.com/item/{itemId}".GetJsonAsync();
+
+                    return apiResponse;
+                }
+                catch (FlurlHttpException exception)
+                {
+                    // check if no results - flurl sees XIVAPI respond with a 'code 404' if it can't find an item
+                    // so it'll throw an exception - we can't check the response body for its contents like we can the custom API
+                    if (exception.Call.HttpStatus == HttpStatusCode.NotFound)
+                        return MarketAPIRequestFailureStatus.NoResults;
+
+                    await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"{exception.Message}"));
+                    await Task.Delay(exceptionRetryDelay);
+                }
+                i++;
+            }
+
+            // return generic api failure code
+            return MarketAPIRequestFailureStatus.APIFailure;
+        }
+
+
+        public async Task<List<MarketItemAnalysisModel>> CreateMarketAnalysis(string itemName, int itemID, string server = null)
+        {
+            var analysisHQ = new MarketItemAnalysisModel();
+            var analysisNQ = new MarketItemAnalysisModel();
+
+            analysisHQ.Name = itemName;
+            analysisNQ.Name = itemName;
+            analysisHQ.ID = itemID;
+            analysisNQ.ID = itemID;
+            analysisHQ.IsHQ = true;
+            analysisNQ.IsHQ = false;
+
+            // make API requests for data
+            var apiHistoryResponse = await GetHistoryListingsFromApi(itemName, itemID, server);
+            var apiMarketResponse = await GetMarketListingsFromApi(itemName, itemID, server);
+
+            // split history results by quality
+            var salesHQ = apiHistoryResponse.Where(x => x.IsHq == true).ToList();
+            var salesNQ = apiHistoryResponse.Where(x => x.IsHq == false).ToList();
+
+            // split market results by quality
+            var marketHQ = apiMarketResponse.Where(x => x.IsHq == true);
+            var marketNQ = apiMarketResponse.Where(x => x.IsHq == false);
+
+            // handle HQ items if they exist
+            if (salesHQ.Any() && marketHQ.Any())
+            {
+                // assign recent sale count
+                analysisHQ.numRecentSales = CountRecentSales(salesHQ);
+
+                // assign average price of last 5 sales
+                analysisHQ.AvgSalePrice = GetAveragePricePerUnit(salesHQ.Take(5).ToList());
+
+                // assign average price of lowest ten listings
+                analysisHQ.AvgMarketPrice = GetAveragePricePerUnit(marketHQ.Take(10).ToList());
+
+                // set checks for if item's sold or has listings
+                if (analysisHQ.AvgMarketPrice == 0)
+                    analysisHQ.ItemHasListings = false;
+                else
+                    analysisHQ.ItemHasListings = true;
+
+                if (analysisHQ.AvgSalePrice == 0)
+                    analysisHQ.ItemHasHistory = false;
+                else
+                    analysisHQ.ItemHasHistory = true;
+
+                // assign differential of sale price to market price
+                if (analysisHQ.ItemHasHistory == false || analysisHQ.ItemHasListings == false)
+                    analysisHQ.Differential = 0;
+                else
+                    analysisHQ.Differential = Math.Round((((decimal)analysisHQ.AvgSalePrice / analysisHQ.AvgMarketPrice) * 100) - 100, 2);
+            }
+
+            // handle NQ items
+            // assign recent sale count
+            analysisNQ.numRecentSales = CountRecentSales(salesNQ);
+
+            // assign average price of last 5 sales
+            analysisNQ.AvgSalePrice = GetAveragePricePerUnit(salesNQ.Take(5).ToList());
+
+            // assign average price of lowest ten listings
+            analysisNQ.AvgMarketPrice = GetAveragePricePerUnit(marketNQ.Take(10).ToList());
+
+            // set checks for if item's sold or has listings
+            if (analysisNQ.AvgMarketPrice == 0)
+                analysisNQ.ItemHasListings = false;
+            else
+                analysisNQ.ItemHasListings = true;
+
+            if (analysisNQ.AvgSalePrice == 0)
+                analysisNQ.ItemHasHistory = false;
+            else
+                analysisNQ.ItemHasHistory = true;
+
+            // assign differential of sale price to market price
+            if (analysisNQ.ItemHasHistory == false || analysisNQ.ItemHasListings == false)
+                analysisNQ.Differential = 0;
+            else
+                analysisNQ.Differential = Math.Round((((decimal)analysisNQ.AvgSalePrice / analysisNQ.AvgMarketPrice) * 100) - 100, 2);
+
+
+            List<MarketItemAnalysisModel> response = new List<MarketItemAnalysisModel>();
+            response.Add(analysisHQ);
+            response.Add(analysisNQ);
+
+            return response;
+        }
+
+
+        public async Task<List<MarketItemAnalysisModel>> GetBestDealsForSearchTerms(string searchTerms, int lowerIlevel, int upperIlevel, string server = null)
+        {
+            var apiResponse = await QueryXivapiWithStringAndILevels(searchTerms, lowerIlevel, upperIlevel);
+
+            // take the response data and add it to a list so we can go over it in parallel
+            var responseList = new List<MarketItemAnalysisModel>();
+            foreach (var item in apiResponse.Results)
+            {
+                responseList.Add(new MarketItemAnalysisModel()
+                {
+                    Name = item.Name,
+                    ID = (int)item.ID
+                });
+            }
+
+            List<MarketItemAnalysisModel> results = new List<MarketItemAnalysisModel>();
+
+            var tasks = Task.Run(() => Parallel.ForEach(responseList, parallelOptions, item =>
+            {
+                var analysis = CreateMarketAnalysis(item.Name, item.ID, server).Result;
+                results.AddRange(analysis);
+            }));
+
+            await Task.WhenAll(tasks);
+
+            var yeet = results;
+
+            return results.Where(x => x.Differential > 150).ToList();
+        }
+
+
+        public async Task<dynamic> QueryXivapiWithStringAndILevels(string searchTerms, int lowerIlevel, int upperIlevel)
+        {
+            // number of retries
+            var i = 0;
+
+            while (i < exceptionRetryCount)
+            {
+                try
+                {
+                    dynamic apiResponse = await $"https://xivapi.com/search?string={searchTerms}&indexes=item&filters=LevelItem>={lowerIlevel},LevelItem<={upperIlevel},IsUntradable=0&private_key={_xivapiKey}".GetJsonAsync();
+
+
+                    if (apiResponse.Results.Count == 0)
+                        return MarketAPIRequestFailureStatus.NoResults;
+
+                    return apiResponse;
+                }
+                catch (FlurlHttpException exception)
+                {
+                    await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"{exception.Message}"));
+                    await Task.Delay(exceptionRetryDelay);
+                }
+                i++;
+            }
+
+            // return generic api failure code
+            return MarketAPIRequestFailureStatus.APIFailure;
+        }
+
+
+        public async Task<dynamic> QueryXivapiForCategoryIds()
+        {
+            // number of retries
+            var i = 0;
+
+            while (i < exceptionRetryCount)
+            {
+                try
+                {
+                    dynamic apiResponse = await "https://xivapi.com/market/categories".GetJsonListAsync();
+
+                    return apiResponse;
+                }
+                catch (FlurlHttpException exception)
+                {
+                    await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"{exception.Message}"));
+                    await Task.Delay(exceptionRetryDelay);
+                }
+                i++;
+            }
+
+            // return generic api failure code
+            return MarketAPIRequestFailureStatus.APIFailure;
+        }
+
         // get data from API using item ID - this is how we retrieve prices from the Companion API
         private async Task<dynamic> QueryCustomApiForListings(int itemId, string server)
-        { 
+        {
             // number of retries
             var i = 0;
 
@@ -236,6 +451,8 @@ namespace Doccer_Bot.Services
                             return MarketAPIRequestFailureStatus.AccessDenied;
                         if (apiResponse.Error == "Service unavailable")
                             return MarketAPIRequestFailureStatus.ServiceUnavailable;
+                        if (apiResponse.Error == "Enumeration yielded no results")
+                            return MarketAPIRequestFailureStatus.NoResults;
                     }
 
                     // check if results are null or empty
@@ -259,7 +476,7 @@ namespace Doccer_Bot.Services
 
         // get history listings data from API using item id - this is how we retrieve sales history from the Companion API
         private async Task<dynamic> QueryCustomApiForHistory(int itemId, string server)
-        {   
+        {
             // number of retries
             var i = 0;
 
@@ -307,9 +524,9 @@ namespace Doccer_Bot.Services
             return MarketAPIRequestFailureStatus.APIFailure;
         }
 
-        // get data from XIVAPI using item name - generally used to get an item's ID
+        // search XIVAPI using item name - generally used to get an item's ID
         private async Task<dynamic> QueryXivapiWithString(string itemName)
-        { 
+        {
             // number of retries
             var i = 0;
 
@@ -317,13 +534,11 @@ namespace Doccer_Bot.Services
             {
                 try
                 {
-                    dynamic apiResponse = await $"https://xivapi.com/search?string={itemName}&indexes=Item&private_key={_xivapiKey}".GetJsonAsync();
+                    dynamic apiResponse = await $"https://xivapi.com/search?string={itemName}&indexes=Item&filters=IsUntradable=0&private_key={_xivapiKey}".GetJsonAsync();
 
-                    // check if no results
-                    if (apiResponse.Results == null || apiResponse.Results.Count == 0)
+                    if (apiResponse.Results.Count == 0)
                         return MarketAPIRequestFailureStatus.NoResults;
 
-                    // otherwise, return what we got
                     return apiResponse;
                 }
                 catch (FlurlHttpException exception)
@@ -338,33 +553,45 @@ namespace Doccer_Bot.Services
             return MarketAPIRequestFailureStatus.APIFailure;
         }
 
-        // get data from XIVAPI using item ID - generally used to get an item's name
-        public async Task<dynamic> QueryXivapiWithItemId(int itemId)
-        { 
-            var i = 0;
-            while (i < exceptionRetryCount)
+        private int GetAveragePricePerUnit(List<MarketItemListingModel> listings)
+        {
+            var sumOfPrices = 0;
+            foreach (var item in listings)
             {
-                try
-                {
-                    dynamic apiResponse = await $"https://xivapi.com/item/{itemId}".GetJsonAsync();
-
-                    // check if no results
-                    if (apiResponse.ToString().Contains("Game Data does not exist"))
-                        return MarketAPIRequestFailureStatus.NoResults;
-
-                    // otherwise, return what we got
-                    return apiResponse;
-                }
-                catch (FlurlHttpException exception)
-                {
-                    await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"{exception.Message}"));
-                    await Task.Delay(exceptionRetryDelay);
-                }
-                i++;
+                sumOfPrices += item.CurrentPrice;
             }
 
-            // return generic api failure code
-            return MarketAPIRequestFailureStatus.APIFailure;
+            if (sumOfPrices == 0 || listings.Count == 0)
+                return 0;
+            return sumOfPrices / listings.Count;
+        }
+
+        private int GetAveragePricePerUnit(List<HistoryItemListingModel> listings)
+        {
+            var sumOfPrices = 0;
+            foreach (var item in listings)
+            {
+                sumOfPrices += item.SoldPrice;
+            }
+
+            if (sumOfPrices == 0 || listings.Count == 0)
+                return 0;
+            return sumOfPrices / listings.Count;
+        }
+
+        private int CountRecentSales(List<HistoryItemListingModel> listings)
+        {
+            var twoDaysAgo = DateTime.Now.Subtract(TimeSpan.FromDays(2));
+
+            var sales = 0;
+            foreach (var item in listings)
+            {
+                if (item.SaleDate > twoDaysAgo)
+                    sales += 1;
+            }
+            if (sales == 0 || listings.Count == 0)
+                return 0;
+            return sales;
         }
     }
 }

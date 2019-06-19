@@ -160,7 +160,7 @@ namespace Doccer_Bot.Services
             server.Events.Clear();
 
             // if there are events, iterate through and add them to our calendarevents list
-            if ((events?.Count() ?? 0) > 0)
+            if (events.Any())
             {
 
                 foreach (var eventItem in events)
@@ -171,7 +171,7 @@ namespace Doccer_Bot.Services
                     eventItem.End.DateTime = eventItem.End.DateTime - TimeSpan.FromHours(3);
 
                     // don't add items from the past
-                    if (eventItem.Start.DateTime < TimezoneAdjustedDateTime.Now.Invoke())
+                    if (eventItem.End.DateTime < TimezoneAdjustedDateTime.Now.Invoke())
                         continue;
 
                     // build calendar event to be added to our list
@@ -236,8 +236,15 @@ namespace Doccer_Bot.Services
                 return CalendarSyncStatus.EmptyCalendarId;
 
             // if server object is assigned, the bot is connected, but the bot is not connected to this server, we're probably kicked
-            if (server.DiscordServer != null && server.DiscordServer.Available && ((SocketGuild) server.DiscordServer).IsConnected == false)
+            if (server.DiscordServer != null && server.DiscordServer.Available &&
+                ((SocketGuild) server.DiscordServer).IsConnected == false)
+            {
+                // DEBUG
+                _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"DEBUG - Name: {server.DiscordServer.Name} - Available: {server.DiscordServer.Available} " +
+                                                                             $"Connected: {((SocketGuild) server.DiscordServer).IsConnected}"));
                 return CalendarSyncStatus.ServerUnavailable;
+            }
+                
 
             return CalendarSyncStatus.OK;
         }

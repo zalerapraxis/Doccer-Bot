@@ -100,11 +100,6 @@ namespace Doccer_Bot.Services
         {
             await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, "Timer ticked."));
 
-            // we only add to this list if the bot is not connected to a server
-            // we can't modify the ServerList while iterating through it, so we add any rogue
-            // servers to this list and remove them later
-            var serversToRemove = new List<Server>();
-
             foreach (var server in Servers.ServerList)
             {
                 // check if it's possible for us to sync
@@ -126,17 +121,9 @@ namespace Doccer_Bot.Services
                 {
                     if (syncStatus == CalendarSyncStatus.ServerUnavailable)
                     {
-                        await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"Removing {server.ServerName} from ServerList & database."));
-                        serversToRemove.Add(server);
+                        await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"Could not tell if we're connected to {server.ServerName} - skipping for now."));
                     }
                 }
-            }
-
-            // removes any servers that we aren't connected to from the ServerList and the database
-            foreach (var server in serversToRemove)
-            {
-                Servers.ServerList.RemoveAll(x => x.ServerId == server.ServerId);
-                await _databaseServers.RemoveServerInfo(server);
             }
         }
 
