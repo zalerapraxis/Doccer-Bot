@@ -336,9 +336,9 @@ namespace Doccer_Bot.Services
         }
 
 
-        public async Task<List<MarketItemAnalysisModel>> GetBestDealsFromCategory(int cid, int lowerIlevel, int upperIlevel, string server = null, string searchterms = null)
+        public async Task<List<MarketItemAnalysisModel>> GetBestDealsForSearchTerms(string searchTerms, int lowerIlevel, int upperIlevel, string server = null)
         {
-            var apiResponse = await QueryXivapiForItemIdsGivenCategoryId(cid, lowerIlevel, upperIlevel, searchterms);
+            var apiResponse = await QueryXivapiWithStringAndILevels(searchTerms, lowerIlevel, upperIlevel);
 
             // take the response data and add it to a list so we can go over it in parallel
             var responseList = new List<MarketItemAnalysisModel>();
@@ -367,7 +367,7 @@ namespace Doccer_Bot.Services
         }
 
 
-        public async Task<dynamic> QueryXivapiForItemIdsGivenCategoryId(int cid, int lowerIlevel, int upperIlevel, string searchterms = null)
+        public async Task<dynamic> QueryXivapiWithStringAndILevels(string searchTerms, int lowerIlevel, int upperIlevel)
         {
             // number of retries
             var i = 0;
@@ -376,12 +376,7 @@ namespace Doccer_Bot.Services
             {
                 try
                 {
-                    dynamic apiResponse = null;
-
-                    if (searchterms != null)
-                        apiResponse = await $"https://xivapi.com/search?string={searchterms}&indexes=item&filters=ItemSearchCategory.ID={cid},LevelItem>={lowerIlevel},LevelItem<={upperIlevel}&private_key={_xivapiKey}".GetJsonAsync();
-                    else
-                        apiResponse = await $"https://xivapi.com/search?indexes=item&filters=ItemSearchCategory.ID={cid},LevelItem>={lowerIlevel},LevelItem<={upperIlevel}&private_key={_xivapiKey}".GetJsonAsync();
+                    dynamic apiResponse = await $"https://xivapi.com/search?string={searchTerms}&indexes=item&filters=LevelItem>={lowerIlevel},LevelItem<={upperIlevel},IsUntradable=0&private_key={_xivapiKey}".GetJsonAsync();
 
 
                     if (apiResponse.Results.Count == 0)
@@ -598,13 +593,5 @@ namespace Doccer_Bot.Services
                 return 0;
             return sales;
         }
-
-        public Dictionary<string, int> CategoryMateria = new Dictionary<string, int>()
-        {
-            {"Strength Materia VI", 18006},
-            {"Heavens' Eye Materia VI", 18018},
-            {"Savage Aim Materia VI", 18019},
-            {"Savage Might Materia VI", 18020},
-        };
     }
 }
