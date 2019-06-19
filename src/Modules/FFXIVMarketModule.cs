@@ -93,7 +93,11 @@ namespace Doccer_Bot.Modules
                 // too many results
                 if (itemIdQueryResult.Count > 10)
                 {
-                    await ReplyAsync($"Too many results found ({itemIdQueryResult.Count}). Try to narrow down your search terms, or use `.item search` to get your item's ID and use that instead.");
+                    var resultcount = $"{itemIdQueryResult.Count}";
+                    if (itemIdQueryResult.Count == 100)
+                        resultcount = "100+";
+
+                    await ReplyAsync($"Too many results found ({resultcount}). Try to narrow down your search terms, or use `.item search` to get your item's ID and use that instead.");
                     return;
                 }
 
@@ -282,7 +286,11 @@ namespace Doccer_Bot.Modules
                 // too many results
                 if (itemIdQueryResult.Count > 10)
                 {
-                    await ReplyAsync($"Too many results found ({itemIdQueryResult.Count}). Try to narrow down your search terms, or use `.item search` to get your item's ID and use that instead.");
+                    var resultcount = $"{itemIdQueryResult.Count}";
+                    if (itemIdQueryResult.Count == 100)
+                        resultcount = "100+";
+
+                    await ReplyAsync($"Too many results found ({resultcount}). Try to narrow down your search terms, or use `.item search` to get your item's ID and use that instead.");
                     return;
                 }
 
@@ -461,6 +469,10 @@ namespace Doccer_Bot.Modules
             // * assigns itemid to search result, if there was only one search result, and then continue the function
             if (!searchTermIsItemId)
             {
+                // remove any trailing spaces
+                if (searchTerm.EndsWith(" "))
+                    searchTerm = searchTerm.Remove(searchTerm.Length - 1);
+
                 // response is either a ordereddictionary of keyvaluepairs, or null
                 var itemIdQueryResult = await MarketService.SearchForItemByName(searchTerm);
 
@@ -474,8 +486,12 @@ namespace Doccer_Bot.Modules
                 // too many results
                 if (itemIdQueryResult.Count > 10)
                 {
+                    var resultcount = $"{itemIdQueryResult.Count}";
+                    if (itemIdQueryResult.Count == 100)
+                        resultcount = "100+";
+
                     await ReplyAsync(
-                        $"Too many results found ({itemIdQueryResult.Count}). Try to narrow down your search terms, or use `.item search` to get your item's ID and use that instead.");
+                        $"Too many results found ({resultcount}). Try to narrow down your search terms, or use `.item search` to get your item's ID and use that instead.");
                     return;
                 }
 
@@ -548,12 +564,15 @@ namespace Doccer_Bot.Modules
         }
 
 
+        // should be able to accept inputs in any order - if two values are provided, they will be treated as minilvl and maxilvl respectively
         [Command("market deals", RunMode = RunMode.Async)]
         [Summary("Get market analyses for item categories")]
-        [Example("market deals {categoryid} (minilvl) (maxilvl) (searchterms) (server)")]
+        [Example("market deals {searchterms} (minilvl) (maxilvl) (server)")]
         // function will attempt to parse server from searchTerm, no need to make a separate param
         public async Task MarketGetDealsAsync(params string[] inputs)
         {
+            int index = 0;
+
             // set defaults
             int defaultLowerIlevel = 0;
             int defaultUpperIlevel = 1000;
@@ -570,16 +589,16 @@ namespace Doccer_Bot.Modules
                 StringBuilder categoryIDsField2Builder = new StringBuilder();
 
                 // sort categories into alternating columns for two embed fields
-                int i = 0;
+                index = 0;
                 foreach (var category in categories)
                 {
                     // odd
-                    if (i % 2 != 0)
+                    if (index % 2 != 0)
                         categoryIDsField1Builder.AppendLine($"{category.Name} - {category.ID}");
                     // even
-                    if (i % 2 == 0)
+                    if (index % 2 == 0)
                         categoryIDsField2Builder.AppendLine($"{category.Name} - {category.ID}");
-                    i++;
+                    index++;
                 }
                 
                 categoryIDsEmbedBuilder.AddField("Categories", categoryIDsField1Builder.ToString(), true);
@@ -587,13 +606,6 @@ namespace Doccer_Bot.Modules
                 categoryIDsEmbedBuilder.Color = Color.Blue;
 
                 await ReplyAsync(null, false, categoryIDsEmbedBuilder.Build());
-                return;
-            }
-
-            // category must be a int
-            if (inputs[0] != null && int.TryParse(inputs[0], out var tmp) == false)
-            {
-                await ReplyAsync("Invalid category input. Input must be a number.");
                 return;
             }
 
@@ -615,21 +627,20 @@ namespace Doccer_Bot.Modules
                 }
             }
 
-            // if list count is 1, we only got category ID, so add default lowerIlvl and upperIlvl
-            if (integerInputsList.Count == 1)
+            // if list count is 0, we didn't get any ilv inputs, so set them
+            if (integerInputsList.Count == 0)
             {
                 integerInputsList.Add(defaultLowerIlevel);
                 integerInputsList.Add(defaultUpperIlevel);
             }
             // if list count is 2, we only got lower ilvl, so add upper ilvl 
-            if (integerInputsList.Count == 2)
+            if (integerInputsList.Count == 1)
             {
                 integerInputsList.Add(defaultUpperIlevel);
             }
 
-            int cid = integerInputsList[0];
-            int lowerIlevel = integerInputsList[1];
-            int upperIlevel = integerInputsList[2];
+            int lowerIlevel = integerInputsList[0];
+            int upperIlevel = integerInputsList[1];
 
 
             string searchTerms = null;
@@ -653,7 +664,7 @@ namespace Doccer_Bot.Modules
                 upperIlevel = defaultUpperIlevel;
 
             // get count of items & send list as embed
-            var apiResponse = await MarketService.QueryXivapiForItemIdsGivenCategoryId(cid, lowerIlevel, upperIlevel, searchTerms);
+            var apiResponse = await MarketService.QueryXivapiWithStringAndILevels(searchTerms, lowerIlevel, upperIlevel);
             if (apiResponse.GetType() == typeof(MarketAPIRequestFailureStatus) && apiResponse == MarketAPIRequestFailureStatus.APIFailure)
             {
                 await ReplyAsync("API failure");
@@ -661,23 +672,39 @@ namespace Doccer_Bot.Modules
             }
 
             EmbedBuilder searchResultsEmbedBuilder = new EmbedBuilder();
-            StringBuilder itemFieldBuilder = new StringBuilder();
+            StringBuilder itemField1Builder = new StringBuilder();
+            StringBuilder itemField2Builder = new StringBuilder();
 
+            index = 0;
             foreach (var item in apiResponse.Results)
             {
-                itemFieldBuilder.AppendLine(item.Name);
+                if (index % 2 == 0 && itemField1Builder.Length < 1000)
+                    itemField1Builder.AppendLine(item.Name);
+                if (index % 2 != 0 && itemField2Builder.Length < 1000)
+                    itemField2Builder.AppendLine(item.Name);
+
+                index++;
             }
 
-            searchResultsEmbedBuilder.AddField("Names", itemFieldBuilder);
+            searchResultsEmbedBuilder.AddField("Names", itemField1Builder, true);
+            if (itemField2Builder.Length > 0) // only add second field if more than 1 item was found
+                searchResultsEmbedBuilder.AddField("Names", itemField2Builder, true);
             searchResultsEmbedBuilder.Color = Color.Blue;
 
-            var waitMsg = await ReplyAsync($"We found {apiResponse.Results.Count} items, and we're going to start processing them now. This may take a while...", false, searchResultsEmbedBuilder.Build());
+
+            double estimatedTime = (apiResponse.Results.Count * 0.75) + 8; // 0.75 seconds per item approximately, with ~8s being initial processing time
+
+            var resultcount = $"{apiResponse.Results.Count}";
+            if (apiResponse.Results.Count == 100)
+                resultcount = "100+";
+
+            var waitMsg = await ReplyAsync($"We found {resultcount} items - processing them now. This should take about {estimatedTime} seconds.", false, searchResultsEmbedBuilder.Build());
 
             // show user that the bot is processing
             await Context.Channel.TriggerTypingAsync();
 
             // get deals & send them as embed
-            var deals = await MarketService.GetBestDealsFromCategory(cid, lowerIlevel, upperIlevel, server, searchTerms);
+            var deals = await MarketService.GetBestDealsForSearchTerms(searchTerms, lowerIlevel, upperIlevel, server);
 
             // delete wait msg
             await waitMsg.DeleteAsync();
@@ -751,7 +778,7 @@ namespace Doccer_Bot.Modules
             {
                 var counter = i;
                 var itemsDictionaryID = itemsList[i].ID;
-                messageContents.AddCallBack(numberEmojis[counter], async (c, r) => await HandleInteractiveUserSelectCallback(itemsDictionaryID, functionToCall, server));
+                messageContents.AddCallBack(numberEmojis[counter], async (c, r) => HandleInteractiveUserSelectCallback(itemsDictionaryID, functionToCall, server));
 
             }
 
@@ -787,7 +814,6 @@ namespace Doccer_Bot.Modules
                     await MarketAnalyzeItemAsync($"{server} {itemId}");
                     break;
             }
-            
         }
     }
 }
