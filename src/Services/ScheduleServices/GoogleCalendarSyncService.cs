@@ -236,8 +236,15 @@ namespace Doccer_Bot.Services
                 return CalendarSyncStatus.EmptyCalendarId;
 
             // if server object is assigned, the bot is connected, but the bot is not connected to this server, we're probably kicked
-            if (server.DiscordServer != null && server.DiscordServer.Available && ((SocketGuild) server.DiscordServer).IsConnected == false)
+            if (server.DiscordServer != null && server.DiscordServer.Available &&
+                ((SocketGuild) server.DiscordServer).IsConnected == false)
+            {
+                // DEBUG
+                _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"DEBUG - Name: {server.DiscordServer.Name} - Available: {server.DiscordServer.Available} " +
+                                                                             $"Connected: {((SocketGuild) server.DiscordServer).IsConnected}"));
                 return CalendarSyncStatus.ServerUnavailable;
+            }
+                
 
             return CalendarSyncStatus.OK;
         }
