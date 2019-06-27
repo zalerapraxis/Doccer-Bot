@@ -541,7 +541,12 @@ namespace Doccer_Bot.Modules
                 StringBuilder hqFieldBuilder = new StringBuilder();
                 hqFieldBuilder.AppendLine($"Avg Market Price: {hqMarketAnalysis.AvgMarketPrice}");
                 hqFieldBuilder.AppendLine($"Avg Sale Price: {hqMarketAnalysis.AvgSalePrice}");
-                hqFieldBuilder.AppendLine($"Differential: {hqMarketAnalysis.Differential}");
+                hqFieldBuilder.AppendLine($"Differential: {hqMarketAnalysis.Differential}%");
+                hqFieldBuilder.Append("Active:");
+                if (hqMarketAnalysis.numRecentSales >= 5)
+                    hqFieldBuilder.AppendLine(" Yes");
+                else
+                    hqFieldBuilder.AppendLine("No");
 
                 analysisEmbedBuilder.AddField("HQ", hqFieldBuilder.ToString());
             }
@@ -549,7 +554,12 @@ namespace Doccer_Bot.Modules
             StringBuilder nqFieldBuilder = new StringBuilder();
             nqFieldBuilder.AppendLine($"Avg Market Price: {nqMarketAnalysis.AvgMarketPrice}");
             nqFieldBuilder.AppendLine($"Avg Sale Price: {nqMarketAnalysis.AvgSalePrice}");
-            nqFieldBuilder.AppendLine($"Differential: {nqMarketAnalysis.Differential}");
+            nqFieldBuilder.AppendLine($"Differential: {nqMarketAnalysis.Differential}%");
+            nqFieldBuilder.Append("Active:");
+            if (nqMarketAnalysis.numRecentSales >= 5)
+                nqFieldBuilder.AppendLine(" Yes");
+            else
+                nqFieldBuilder.AppendLine("No");
 
             analysisEmbedBuilder.AddField("NQ", nqFieldBuilder.ToString());
 
@@ -729,7 +739,7 @@ namespace Doccer_Bot.Modules
                 StringBuilder dealFieldContentsBuilder = new StringBuilder();
                 dealFieldContentsBuilder.AppendLine($"Avg Market Price: {item.AvgMarketPrice}");
                 dealFieldContentsBuilder.AppendLine($"Avg Sale Price: {item.AvgSalePrice}");
-                dealFieldContentsBuilder.AppendLine($"Differential: {item.Differential}");
+                dealFieldContentsBuilder.AppendLine($"Differential: {item.Differential}%");
 
                 dealsEmbedBuilder.AddField(dealFieldNameBuilder.ToString(), dealFieldContentsBuilder.ToString(), true);
             }
