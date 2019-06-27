@@ -12,6 +12,10 @@ using Doccer_Bot.Models;
 using Flurl.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using MongoDB.Bson.IO;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using JsonConvert = Newtonsoft.Json.JsonConvert;
 
 namespace Doccer_Bot.Services
 {
@@ -111,6 +115,8 @@ namespace Doccer_Bot.Services
                         return;
                     if (apiResponse == MarketAPIRequestFailureStatus.NoResults)
                         return;
+                    if (apiResponse == MarketAPIRequestFailureStatus.APIFailure)
+                        return;
                 }
 
                 foreach (var listing in apiResponse.Prices)
@@ -168,6 +174,8 @@ namespace Doccer_Bot.Services
                     if (apiResponse == MarketAPIRequestFailureStatus.ServiceUnavailable)
                         return;
                     if (apiResponse == MarketAPIRequestFailureStatus.NoResults)
+                        return;
+                    if (apiResponse == MarketAPIRequestFailureStatus.APIFailure)
                         return;
                 }
 
@@ -434,33 +442,31 @@ namespace Doccer_Bot.Services
                 {
                     dynamic apiResponse = await $"{_customMarketApiUrl}/market/?id={itemId}&server={server}".GetJsonAsync();
 
-                    if (apiResponse == null)
-                        return MarketAPIRequestFailureStatus.APIFailure;
 
-                    // check if custom API handled error - get apiResponse as dict of keyvalue pairs
-                    // if the dict contains 'Error' key, it's a handled error
-                    if (((IDictionary<String, object>)apiResponse).ContainsKey("Error"))
+                    if ((object)apiResponse != null)
                     {
-                        if (apiResponse.Error == null)
-                            return MarketAPIRequestFailureStatus.APIFailure;
-                        if (apiResponse.Error == "Not logged in")
-                            return MarketAPIRequestFailureStatus.NotLoggedIn;
-                        if (apiResponse.Error == "Under maintenance")
-                            return MarketAPIRequestFailureStatus.UnderMaintenance;
-                        if (apiResponse.Error == "Access denied")
-                            return MarketAPIRequestFailureStatus.AccessDenied;
-                        if (apiResponse.Error == "Service unavailable")
-                            return MarketAPIRequestFailureStatus.ServiceUnavailable;
-                        if (apiResponse.Error == "Enumeration yielded no results")
+                        // check if custom API handled error - get apiResponse as dict of keyvalue pairs
+                        // if the dict contains 'Error' key, it's a handled error
+                        if (((IDictionary<String, object>)apiResponse).ContainsKey("Error"))
+                        {
+                            if (apiResponse.Error == null)
+                                return MarketAPIRequestFailureStatus.APIFailure;
+                            if (apiResponse.Error == "Not logged in")
+                                return MarketAPIRequestFailureStatus.NotLoggedIn;
+                            if (apiResponse.Error == "Under maintenance")
+                                return MarketAPIRequestFailureStatus.UnderMaintenance;
+                            if (apiResponse.Error == "Access denied")
+                                return MarketAPIRequestFailureStatus.AccessDenied;
+                            if (apiResponse.Error == "Service unavailable")
+                                return MarketAPIRequestFailureStatus.ServiceUnavailable;
+                        }
+
+                        if (apiResponse.Prices == null || apiResponse.Prices.Count == 0)
                             return MarketAPIRequestFailureStatus.NoResults;
+
+                        // otherwise, return what we got
+                        return apiResponse;
                     }
-
-                    // check if results are null or empty
-                    if (apiResponse.Prices == null || apiResponse.Prices.Count == 0)
-                        return MarketAPIRequestFailureStatus.NoResults;
-
-                    // otherwise, return what we got
-                    return apiResponse;
                 }
                 catch (FlurlHttpException exception)
                 {
@@ -479,6 +485,7 @@ namespace Doccer_Bot.Services
         {
             // number of retries
             var i = 0;
+            string wot = "";
 
             while (i < exceptionRetryCount)
             {
@@ -486,31 +493,32 @@ namespace Doccer_Bot.Services
                 {
                     dynamic apiResponse = await $"{_customMarketApiUrl}/market/history.php?id={itemId}&server={server}".GetJsonAsync();
 
-                    if (apiResponse == null)
-                        return MarketAPIRequestFailureStatus.APIFailure;
-
-                    // check if custom API handled error - get apiResponse as dict of keyvalue pairs
-                    // if the dict contains 'Error' key, it's a handled error
-                    if (((IDictionary<String, object>)apiResponse).ContainsKey("Error"))
+                    if ((object) apiResponse != null)
                     {
-                        if (apiResponse.Error == null)
-                            return MarketAPIRequestFailureStatus.APIFailure;
-                        if (apiResponse.Error == "Not logged in")
-                            return MarketAPIRequestFailureStatus.NotLoggedIn;
-                        if (apiResponse.Error == "Under maintenance")
-                            return MarketAPIRequestFailureStatus.UnderMaintenance;
-                        if (apiResponse.Error == "Access denied")
-                            return MarketAPIRequestFailureStatus.AccessDenied;
-                        if (apiResponse.Error == "Service unavailable")
-                            return MarketAPIRequestFailureStatus.ServiceUnavailable;
+                        // check if custom API handled error - get apiResponse as dict of keyvalue pairs
+                        // if the dict contains 'Error' key, it's a handled error
+                        if (((IDictionary<String, object>)apiResponse).ContainsKey("Error"))
+                        {
+                            wot = JsonConvert.SerializeObject(apiResponse);
+
+                            if (apiResponse.Error == null)
+                                return MarketAPIRequestFailureStatus.APIFailure;
+                            if (apiResponse.Error == "Not logged in")
+                                return MarketAPIRequestFailureStatus.NotLoggedIn;
+                            if (apiResponse.Error == "Under maintenance")
+                                return MarketAPIRequestFailureStatus.UnderMaintenance;
+                            if (apiResponse.Error == "Access denied")
+                                return MarketAPIRequestFailureStatus.AccessDenied;
+                            if (apiResponse.Error == "Service unavailable")
+                                return MarketAPIRequestFailureStatus.ServiceUnavailable;
+                        }
+
+                        if (apiResponse.history == null || apiResponse.history.Count == 0)
+                            return MarketAPIRequestFailureStatus.NoResults;
+
+                        // otherwise, return what we got
+                        return apiResponse;
                     }
-
-                    // check if results are null or empty
-                    if (apiResponse.history == null || apiResponse.history.Count == 0)
-                        return MarketAPIRequestFailureStatus.NoResults;
-
-                    // otherwise, return what we got
-                    return apiResponse;
                 }
                 catch (FlurlHttpException exception)
                 {
