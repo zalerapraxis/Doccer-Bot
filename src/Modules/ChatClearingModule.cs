@@ -14,6 +14,8 @@ namespace Example.Modules
     [RequireContext(ContextType.Guild)]
     public class ChatClearingModule : ModuleBase<SocketCommandContext>
     {
+        public LoggingService _logger { get; set; }
+
         // clear chatlogs
         [Command("clear")]
         [Summary("Clears the last x messages in current channel - default 100")]
@@ -31,9 +33,13 @@ namespace Example.Modules
 
             var server = Servers.ServerList.Find(x => x.DiscordServer == Context.Guild);
 
+            // remove schedule embed message from the messages list, so it doesn't get deleted
             if (server != null && server.EventEmbedMessage != null)
-                // remove schedule embed message from the messages list, so it doesn't get deleted
                 messages = messages.Where(msg => msg.Id != server.EventEmbedMessage.Id);
+
+            // remove reminder messages from the messages list, so they don't get deleted
+            if (server != null && server.Events.Exists(x => x.AlertMessage != null))
+                messages = messages.Where(msg => server.Events.Any(x => msg.Id != x.AlertMessage.Id));
 
             try
             {
@@ -42,6 +48,9 @@ namespace Example.Modules
             }
             catch
             {
+                await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name,
+                    "Could not bulk delete messages, switching to individual deletion"));
+
                 if (oldMessages.Any())
                 {
                     // individually delete messages two weeks or older
