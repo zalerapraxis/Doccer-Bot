@@ -16,6 +16,9 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Doccer_Bot.Services
 {
+    //
+    // This service handles building the events embed & reminder alert messages
+    //
     public class ScheduleService
     {
         private readonly DiscordSocketClient _discord;
@@ -23,8 +26,7 @@ namespace Doccer_Bot.Services
 
         private readonly TextMemeService _textMemeService;
         private readonly LoggingService _logger;
-
-        // DiscordSocketClient, CommandService, and IConfigurationRoot are injected automatically from the IServiceProvider
+        
         public ScheduleService(
             DiscordSocketClient discord,
             IConfigurationRoot config,
@@ -116,6 +118,13 @@ namespace Doccer_Bot.Services
 
                 // if the event is almost past, delete the alertmessage
                 if (calendarEvent.EndDate < TimezoneAdjustedDateTime.Now.Invoke() + TimeSpan.FromMinutes(5))
+                {
+                    await calendarEvent.AlertMessage.DeleteAsync();
+                    calendarEvent.AlertMessage = null;
+                }
+
+                // if the event is over an hour from now and an alert message exists, delete it.
+                if (calendarEvent.StartDate > TimezoneAdjustedDateTime.Now.Invoke() + TimeSpan.FromMinutes(60) && calendarEvent.AlertMessage != null)
                 {
                     await calendarEvent.AlertMessage.DeleteAsync();
                     calendarEvent.AlertMessage = null;

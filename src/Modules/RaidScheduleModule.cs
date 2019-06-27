@@ -22,6 +22,44 @@ namespace Doccer_Bot.Modules
         public DatabaseServers DatabaseServers { get; set; }
 
 
+        [Command("adjust")]
+        [Summary("Manually adjusts start/end times for the next upcoming event")]
+        [Example("adjust {start/end} {value}")]
+        [RequireUserPermission(GuildPermission.Administrator)]
+        public async Task AdjustEventAsync(string function, int value = 0)
+        {
+            if (function != "start" && function != "end" && function != "clear" || function != "clear" && value == 0)
+            {
+                await ReplyAsync("You didn't correctly fill out the command. Syntax is `adjust start/end amount (in minutes)`");
+                return;
+            }
+
+            var result = GoogleCalendarSyncService.AdjustUpcomingEvent(function, value, Context);
+
+            if (result == true)
+            {
+                var server = Servers.ServerList.Find(x => x.DiscordServer == Context.Guild);
+
+                StringBuilder responseBuilder = new StringBuilder();
+                responseBuilder.Append($"Event {server.Events[0].Name} adjusted - ");
+
+                if (function == "start")
+                    responseBuilder.Append($" new start time: {server.Events[0].StartDate}");
+                if (function == "end")
+                    responseBuilder.Append($" new end time: {server.Events[0].EndDate}");
+                if (function == "clear")
+                    responseBuilder.Append("adjustment cleared. Use `sync` command to reload original values.");
+
+                await ReplyAsync(responseBuilder.ToString());
+            }
+            if (result == false)
+                await ReplyAsync("Adjust failed - you probably tried to make the event start after it was set to end or something.");
+            if (result == null)
+                await ReplyAsync("Adjust failed - this server doesn't have any events to adjust.");
+
+        }
+
+
         // resync raid schedule timer
         [Command("resync")]
         [Summary("Realigns the timer to nearest time interval")]
