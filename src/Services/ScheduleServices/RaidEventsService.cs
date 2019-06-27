@@ -12,9 +12,6 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Doccer_Bot.Services
 {
-    //
-    // This service contains the timer that periodically calls various scheduling functions in GoogleCalendarSyncService & ScheduleService
-    //
     public class RaidEventsService
     {
         private readonly DiscordSocketClient _discord;
@@ -27,6 +24,7 @@ namespace Doccer_Bot.Services
         private Timer _scheduleTimer; // so garbage collection doesn't eat our timer after a bit
         public TimeSpan _timerInterval = TimeSpan.FromMinutes(5); // how often the timer will run, in minutes
 
+        // DiscordSocketClient, CommandService, and IConfigurationRoot are injected automatically from the IServiceProvider
         public RaidEventsService(
             DiscordSocketClient discord,
             GoogleCalendarSyncService googleCalendarSyncService,

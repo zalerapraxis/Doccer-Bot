@@ -12,7 +12,5 @@ namespace Doccer_Bot.Models
         public DateTime EndDate { get; set; }
         public string Timezone { get; set; }
         public IUserMessage AlertMessage { get; set; }
-        public bool ManuallyAdjusted { get; set; }
-        public string UniqueId { get; set; }
     }
 }
