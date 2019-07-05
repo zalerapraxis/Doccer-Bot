@@ -253,18 +253,25 @@ namespace Doccer_Bot.Services
             return MarketAPIRequestFailureStatus.APIFailure;
         }
 
-
+        // returns three analysis objects: hq, nq, and overall
         public async Task<List<MarketItemAnalysisModel>> CreateMarketAnalysis(string itemName, int itemID, string server = null)
         {
+            if (server == null)
+                server = "gilgamesh";
+
             var analysisHQ = new MarketItemAnalysisModel();
             var analysisNQ = new MarketItemAnalysisModel();
+            var analysisOverall = new MarketItemAnalysisModel(); // items regardless of quality - used for exchange command
 
             analysisHQ.Name = itemName;
             analysisNQ.Name = itemName;
+            analysisOverall.Name = itemName;
             analysisHQ.ID = itemID;
             analysisNQ.ID = itemID;
+            analysisOverall.ID = itemID;
             analysisHQ.IsHQ = true;
             analysisNQ.IsHQ = false;
+            analysisOverall.IsHQ = false;
 
             // make API requests for data
             var apiHistoryResponse = await GetHistoryListingsFromApi(itemName, itemID, server);
@@ -273,16 +280,18 @@ namespace Doccer_Bot.Services
             // split history results by quality
             var salesHQ = apiHistoryResponse.Where(x => x.IsHq == true).ToList();
             var salesNQ = apiHistoryResponse.Where(x => x.IsHq == false).ToList();
+            var salesOverall = apiHistoryResponse.ToList();
 
             // split market results by quality
-            var marketHQ = apiMarketResponse.Where(x => x.IsHq == true);
-            var marketNQ = apiMarketResponse.Where(x => x.IsHq == false);
+            var marketHQ = apiMarketResponse.Where(x => x.IsHq == true).ToList();
+            var marketNQ = apiMarketResponse.Where(x => x.IsHq == false).ToList();
+            var marketOverall = apiHistoryResponse.ToList();
 
             // handle HQ items if they exist
             if (salesHQ.Any() && marketHQ.Any())
             {
                 // assign recent sale count
-                analysisHQ.numRecentSales = CountRecentSales(salesHQ);
+                analysisHQ.NumRecentSales = CountRecentSales(salesHQ);
 
                 // assign average price of last 5 sales
                 analysisHQ.AvgSalePrice = GetAveragePricePerUnit(salesHQ.Take(5).ToList());
@@ -310,7 +319,7 @@ namespace Doccer_Bot.Services
 
             // handle NQ items
             // assign recent sale count
-            analysisNQ.numRecentSales = CountRecentSales(salesNQ);
+            analysisNQ.NumRecentSales = CountRecentSales(salesNQ);
 
             // assign average price of last 5 sales
             analysisNQ.AvgSalePrice = GetAveragePricePerUnit(salesNQ.Take(5).ToList());
@@ -336,9 +345,38 @@ namespace Doccer_Bot.Services
                 analysisNQ.Differential = Math.Round((((decimal)analysisNQ.AvgSalePrice / analysisNQ.AvgMarketPrice) * 100) - 100, 2);
 
 
+            // handle overall items list
+            // assign recent sale count
+            analysisOverall.NumRecentSales = CountRecentSales(salesOverall);
+
+            // assign average price of last 5 sales
+            analysisOverall.AvgSalePrice = GetAveragePricePerUnit(salesOverall.Take(5).ToList());
+
+            // assign average price of lowest ten listings
+            analysisOverall.AvgMarketPrice = GetAveragePricePerUnit(marketOverall.Take(10).ToList());
+
+            // set checks for if item's sold or has listings
+            if (analysisOverall.AvgMarketPrice == 0)
+                analysisOverall.ItemHasListings = false;
+            else
+                analysisOverall.ItemHasListings = true;
+
+            if (analysisOverall.AvgSalePrice == 0)
+                analysisOverall.ItemHasHistory = false;
+            else
+                analysisOverall.ItemHasHistory = true;
+
+            // assign differential of sale price to market price
+            if (analysisOverall.ItemHasHistory == false || analysisOverall.ItemHasListings == false)
+                analysisOverall.Differential = 0;
+            else
+                analysisOverall.Differential = Math.Round((((decimal)analysisOverall.AvgSalePrice / analysisOverall.AvgMarketPrice) * 100) - 100, 2);
+
+
             List<MarketItemAnalysisModel> response = new List<MarketItemAnalysisModel>();
             response.Add(analysisHQ);
             response.Add(analysisNQ);
+            response.Add(analysisOverall);
 
             return response;
         }
@@ -369,9 +407,53 @@ namespace Doccer_Bot.Services
 
             await Task.WhenAll(tasks);
 
-            var yeet = results;
-
             return results.Where(x => x.Differential > 150).ToList();
+        }
+
+
+        public async Task<List<CurrencyTradeableItem>> GetBestCurrencyExchange(string category, string server = null)
+        {
+            List<CurrencyTradeableItem> itemsList = new List<CurrencyTradeableItem>(); // gets overwritten shortly
+
+            switch (category)
+            {
+                case "gc":
+                    itemsList = CurrencyTradeableItemsModel.GrandCompanySealItemsList;
+                    break;
+                case "poetics":
+                    itemsList = CurrencyTradeableItemsModel.PoeticsItemsList;
+                    break;
+                case "gemstones":
+                    itemsList = CurrencyTradeableItemsModel.GemstonesItemsList;
+                    break;
+                case "nuts":
+                    itemsList = CurrencyTradeableItemsModel.NutsItemsList;
+                    break;
+                case "wgs":
+                    itemsList = CurrencyTradeableItemsModel.WhiteGathererScripsItemsList;
+                    break;
+                case "wcs":
+                    itemsList = CurrencyTradeableItemsModel.WhiteCrafterScripsItemsList;
+                    break;
+                default:
+                    return itemsList;
+            }
+            
+            var tasks = Task.Run(() => Parallel.ForEach(itemsList, parallelOptions, item =>
+            {
+                var analysisResponse = CreateMarketAnalysis(item.Name, item.ItemID, server).Result;
+                // index 2 is the 'overall' analysis that includes both NQ and HQ items
+                var analysis = analysisResponse[2];
+
+                item.AvgMarketPrice = analysis.AvgMarketPrice;
+                item.AvgSalePrice = analysis.AvgSalePrice;
+                item.ValueRatio = item.AvgMarketPrice / item.CurrencyCost;
+                item.NumRecentSales = analysis.NumRecentSales;
+            }));
+
+            await Task.WhenAll(tasks);
+
+            return itemsList;
         }
 
 

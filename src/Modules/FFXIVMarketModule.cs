@@ -61,7 +61,7 @@ namespace Doccer_Bot.Modules
             // if server's not null, user provided a specific server
             // remove server name from the text
             if (server != null)
-                searchTerm = searchTerm.Replace($"{server}", "");
+                searchTerm = searchTerm.Replace($"{server}", "").Trim();
 
             // declare vars - both of these will get populated eventually
             int itemId;
@@ -254,7 +254,7 @@ namespace Doccer_Bot.Modules
             var server = MarketService.ServerList.Where(searchTerm.Contains).FirstOrDefault();
             // if server's not null, remove server name from the text
             if (server != null)
-                searchTerm = searchTerm.Replace($"{server}", "");
+                searchTerm = searchTerm.Replace($"{server}", "").Trim();
 
             // declare vars - both of these will get populated eventually
             int itemId;
@@ -412,7 +412,7 @@ namespace Doccer_Bot.Modules
 
         [Command("market analyze", RunMode = RunMode.Async)]
         [Summary("Get market analysis for an item")]
-        [Example("market analyze {name/id} (server)")]
+        [Example("market analyze {name/id} (server) - defaults to Gilgamesh")]
         // function will attempt to parse server from searchTerm, no need to make a separate param
         public async Task MarketAnalyzeItemAsync([Remainder] string searchTerm)
         {
@@ -450,7 +450,7 @@ namespace Doccer_Bot.Modules
             var server = MarketService.ServerList.Where(searchTerm.Contains).FirstOrDefault();
             // if server's not null, remove server name from the text
             if (server != null)
-                searchTerm = searchTerm.Replace($"{server}", "");
+                searchTerm = searchTerm.Replace($"{server}", "").Trim();
 
             // declare vars - both of these will get populated eventually
             int itemId;
@@ -536,17 +536,20 @@ namespace Doccer_Bot.Modules
             EmbedBuilder analysisEmbedBuilder = new EmbedBuilder();
 
             // hq stuff if values are filled in
-            if (hqMarketAnalysis.numRecentSales != 0)
+            if (hqMarketAnalysis.NumRecentSales != 0)
             {
                 StringBuilder hqFieldBuilder = new StringBuilder();
                 hqFieldBuilder.AppendLine($"Avg Market Price: {hqMarketAnalysis.AvgMarketPrice}");
                 hqFieldBuilder.AppendLine($"Avg Sale Price: {hqMarketAnalysis.AvgSalePrice}");
                 hqFieldBuilder.AppendLine($"Differential: {hqMarketAnalysis.Differential}%");
                 hqFieldBuilder.Append("Active:");
-                if (hqMarketAnalysis.numRecentSales >= 5)
+                if (hqMarketAnalysis.NumRecentSales >= 5)
                     hqFieldBuilder.AppendLine(" Yes");
                 else
                     hqFieldBuilder.AppendLine("No");
+                hqFieldBuilder.AppendLine($"Number of sales: {hqMarketAnalysis.NumRecentSales}");
+                if (hqMarketAnalysis.NumRecentSales >= 20)
+                    hqFieldBuilder.AppendLine("+");
 
                 analysisEmbedBuilder.AddField("HQ", hqFieldBuilder.ToString());
             }
@@ -556,16 +559,24 @@ namespace Doccer_Bot.Modules
             nqFieldBuilder.AppendLine($"Avg Sale Price: {nqMarketAnalysis.AvgSalePrice}");
             nqFieldBuilder.AppendLine($"Differential: {nqMarketAnalysis.Differential}%");
             nqFieldBuilder.Append("Active:");
-            if (nqMarketAnalysis.numRecentSales >= 5)
+            if (nqMarketAnalysis.NumRecentSales >= 5)
                 nqFieldBuilder.AppendLine(" Yes");
             else
                 nqFieldBuilder.AppendLine("No");
+            nqFieldBuilder.AppendLine($"Number of sales: {nqMarketAnalysis.NumRecentSales}");
+            if (nqMarketAnalysis.NumRecentSales >= 20)
+                nqFieldBuilder.AppendLine("+");
 
             analysisEmbedBuilder.AddField("NQ", nqFieldBuilder.ToString());
 
+            StringBuilder embedNameBuilder = new StringBuilder();
+            embedNameBuilder.Append($"Market analysis for {itemName}");
+            if (server != null)
+                embedNameBuilder.Append($" on {server}");
+
             analysisEmbedBuilder.Author = new EmbedAuthorBuilder()
             {
-                Name = $"Market analysis for {itemName}",
+                Name = embedNameBuilder.ToString()
             };
             analysisEmbedBuilder.ThumbnailUrl = itemIconUrl;
             analysisEmbedBuilder.Color = Color.Blue;
@@ -577,7 +588,7 @@ namespace Doccer_Bot.Modules
         // should be able to accept inputs in any order - if two values are provided, they will be treated as minilvl and maxilvl respectively
         [Command("market deals", RunMode = RunMode.Async)]
         [Summary("Get market analyses for item categories")]
-        [Example("market deals {searchterms} (minilvl) (maxilvl) (server)")]
+        [Example("market deals {searchterms} (minilvl) (maxilvl) (server) - defaults to Gilgamesh")]
         // function will attempt to parse server from searchTerm, no need to make a separate param
         public async Task MarketGetDealsAsync(params string[] inputs)
         {
@@ -660,14 +671,15 @@ namespace Doccer_Bot.Modules
             server = MarketService.ServerList.Where(combinedStringInputs.Contains).FirstOrDefault();
             // remove server text from combined inputs if server text exists
             if (server != null)
-                combinedStringInputs = combinedStringInputs.Replace($"{server}", "");
+                combinedStringInputs = combinedStringInputs.Replace($"{server}", "").Trim();
 
             // assign remaining text to search terms
             searchTerms = combinedStringInputs;
 
             // remove any trailing spaces
-            if (searchTerms.EndsWith(" "))
-                searchTerms = searchTerms.Remove(searchTerms.Length - 1);
+            // .trim should take care of this instead?
+            //if (searchTerms.EndsWith(" "))
+                //searchTerms = searchTerms.Remove(searchTerms.Length - 1);
 
             // QoL thing - if user inputs 0 for upper ilvl, treat it as if there is no upper bound
             if (upperIlevel == 0)
@@ -740,13 +752,21 @@ namespace Doccer_Bot.Modules
                 dealFieldContentsBuilder.AppendLine($"Avg Market Price: {item.AvgMarketPrice}");
                 dealFieldContentsBuilder.AppendLine($"Avg Sale Price: {item.AvgSalePrice}");
                 dealFieldContentsBuilder.AppendLine($"Differential: {item.Differential}%");
+                dealFieldContentsBuilder.AppendLine($"Number of sales: {item.NumRecentSales}");
+                if (item.NumRecentSales >= 20)
+                    dealFieldContentsBuilder.AppendLine("+");
 
                 dealsEmbedBuilder.AddField(dealFieldNameBuilder.ToString(), dealFieldContentsBuilder.ToString(), true);
             }
 
+            StringBuilder embedNameBuilder = new StringBuilder();
+            embedNameBuilder.Append($"Potential deals");
+            if (server != null)
+                embedNameBuilder.Append($" on {server}");
+
             dealsEmbedBuilder.Author = new EmbedAuthorBuilder()
             {
-                Name = "Potential deals",
+                Name = embedNameBuilder.ToString()
             };
             dealsEmbedBuilder.Color = Color.Blue;
 
@@ -754,12 +774,129 @@ namespace Doccer_Bot.Modules
         }
 
 
+        // should be able to accept inputs in any order - if two values are provided, they will be treated as minilvl and maxilvl respectively
+        [Command("market exchange", RunMode = RunMode.Async)]
+        [Summary("Get best items to spend your tomes/seals on")]
+        [Example("market exchange {currency} (server) - defaults to Gilgamesh")]
+        // function will attempt to parse server from searchTerm, no need to make a separate param
+        public async Task MarketGetBestCurrencyExchangesAsync([Remainder] string inputs = null)
+        {
+            if (inputs == null || !inputs.Any())
+            {
+                StringBuilder categoryListBuilder = new StringBuilder();
+                categoryListBuilder.AppendLine("These are the categories you can check:");
+
+                categoryListBuilder.AppendLine("gc - grand company seals");
+                categoryListBuilder.AppendLine("poetics - i380 crafter mats, more later maybe");
+                categoryListBuilder.AppendLine("gemstones - bicolor gemstones from fates");
+                categoryListBuilder.AppendLine("nuts - sacks of nuts from hunts :peanut:");
+                categoryListBuilder.AppendLine("wgs - White Gatherer Scrip items");
+                categoryListBuilder.AppendLine("wcs - White Crafter Scrip items");
+
+                await ReplyAsync(categoryListBuilder.ToString());
+                return;
+            }
+
+            // convert to lowercase so that if user specified server in capitals,
+            // it doesn't break our text matching in serverlist and with api request
+            inputs = inputs.ToLower();
+
+            // show that the bot's processing
+            await Context.Channel.TriggerTypingAsync();
+
+            // check if the API is operational, handle it if it's not
+            var apiStatus = await MarketService.GetCompanionApiStatus();
+            if (apiStatus != MarketAPIRequestFailureStatus.OK)
+            {
+                string apiStatusHumanResponse = "";
+
+                if (apiStatus == MarketAPIRequestFailureStatus.NotLoggedIn)
+                    apiStatusHumanResponse =
+                        $"Not logged in to Companion API. Contact {Context.Guild.GetUser(110866678161645568).Mention}.";
+                if (apiStatus == MarketAPIRequestFailureStatus.UnderMaintenance)
+                    apiStatusHumanResponse = "SE's API is down for maintenance.";
+                if (apiStatus == MarketAPIRequestFailureStatus.AccessDenied)
+                    apiStatusHumanResponse =
+                        $"Access denied. Contact {Context.Guild.GetUser(110866678161645568).Mention}.";
+                if (apiStatus == MarketAPIRequestFailureStatus.ServiceUnavailable ||
+                    apiStatus == MarketAPIRequestFailureStatus.APIFailure)
+                    apiStatusHumanResponse =
+                        $"Something went wrong. Contact {Context.Guild.GetUser(110866678161645568).Mention}.";
+
+                await ReplyAsync(apiStatusHumanResponse);
+                return;
+            }
+
+            // try to get server name from the given text
+            var server = MarketService.ServerList.Where(inputs.Contains).FirstOrDefault();
+            // if server's not null, remove server name from the text
+            if (server != null)
+                inputs = inputs.Replace($"{server}", "").Trim();
+
+            string category = inputs;
+
+            // show that the bot's processing
+            await Context.Channel.TriggerTypingAsync();
+
+            // grab data from api
+            var currencyDeals = await MarketService.GetBestCurrencyExchange(category, server);
+
+            // keep items that are actively selling, and order by value ratio to put the best stuff on top
+            currencyDeals = currencyDeals.Where(x => x.NumRecentSales > 5).OrderByDescending(x => x.ValueRatio).ToList();
+
+            // catch if the user didn't send a good category
+            if (currencyDeals.Count == 0 || !currencyDeals.Any())
+            {
+                await ReplyAsync("You didn't input an existing category. Run the command by itself to get the categories this command can take.");
+                return;
+            }
+
+            EmbedBuilder dealsEmbedBuilder = new EmbedBuilder();
+
+            foreach (var item in currencyDeals.Take(25))
+            {
+                StringBuilder dealFieldNameBuilder = new StringBuilder();
+                dealFieldNameBuilder.Append($"{item.Name}");
+
+                StringBuilder dealFieldContentsBuilder = new StringBuilder();
+                dealFieldContentsBuilder.AppendLine($"Avg Market Price: {item.AvgMarketPrice}");
+                dealFieldContentsBuilder.AppendLine($"Avg Sale Price: {item.AvgSalePrice}");
+                dealFieldContentsBuilder.AppendLine($"Currency cost: {item.CurrencyCost}");
+                dealFieldContentsBuilder.AppendLine($"Value ratio: {item.ValueRatio:0.000} gil/c");
+                dealFieldContentsBuilder.Append("Active:");
+                if (item.NumRecentSales >= 5)
+                    dealFieldContentsBuilder.AppendLine(" Yes");
+                else
+                    dealFieldContentsBuilder.AppendLine("No");
+                dealFieldContentsBuilder.Append($"Number of sales: {item.NumRecentSales}");
+                if (item.NumRecentSales >= 20)
+                    dealFieldContentsBuilder.AppendLine("+");
+
+                dealsEmbedBuilder.AddField(dealFieldNameBuilder.ToString(), dealFieldContentsBuilder.ToString(), true);
+            }
+
+            StringBuilder embedNameBuilder = new StringBuilder();
+            embedNameBuilder.Append($"{category}");
+            if (server != null)
+                embedNameBuilder.Append($" on {server}");
+
+            dealsEmbedBuilder.Author = new EmbedAuthorBuilder()
+            {
+                Name = embedNameBuilder.ToString()
+            };
+            dealsEmbedBuilder.Color = Color.Blue;
+
+            await ReplyAsync(null, false, dealsEmbedBuilder.Build());
+        }
+
+
+
         // interactive user selection prompt - each item in the passed collection gets listed out with an emoji
-        // user selects an emoji, and the handlecallback function is run with the corresponding item ID as its parameter
-        // it's expected that this function will be the last call in a function before that terminates, and that the callback function
-        // will re-run the function with the user-selected data
-        // optional server parameter to preserve server filter option
-        private async Task InteractiveUserSelectItem(List<ItemSearchResultModel> itemsList, string functionToCall, string server = null)
+            // user selects an emoji, and the handlecallback function is run with the corresponding item ID as its parameter
+            // it's expected that this function will be the last call in a function before that terminates, and that the callback function
+            // will re-run the function with the user-selected data
+            // optional server parameter to preserve server filter option
+            private async Task InteractiveUserSelectItem(List<ItemSearchResultModel> itemsList, string functionToCall, string server = null)
         {
             string[] numbers = new[] { "0⃣", "1⃣", "2⃣", "3⃣", "4⃣", "5⃣", "6⃣", "7⃣", "8⃣", "9⃣" };
             var numberEmojis = new List<Emoji>();

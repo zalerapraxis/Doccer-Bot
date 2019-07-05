@@ -12,7 +12,7 @@ namespace Doccer_Bot.Models
         public decimal Differential { get; set; }
         public int AvgSalePrice { get; set; }
         public int AvgMarketPrice { get; set; }
-        public int numRecentSales { get; set; }
+        public int NumRecentSales { get; set; }
         public bool ItemHasListings { get; set; }
         public bool ItemHasHistory { get; set; }
     }
