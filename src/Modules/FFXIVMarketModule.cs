@@ -61,7 +61,7 @@ namespace Doccer_Bot.Modules
             // if server's not null, user provided a specific server
             // remove server name from the text
             if (server != null)
-                searchTerm = searchTerm.Replace($"{server} ", "");
+                searchTerm = searchTerm.Replace($"{server}", "");
 
             // declare vars - both of these will get populated eventually
             int itemId;
@@ -254,7 +254,7 @@ namespace Doccer_Bot.Modules
             var server = MarketService.ServerList.Where(searchTerm.Contains).FirstOrDefault();
             // if server's not null, remove server name from the text
             if (server != null)
-                searchTerm = searchTerm.Replace($"{server} ", "");
+                searchTerm = searchTerm.Replace($"{server}", "");
 
             // declare vars - both of these will get populated eventually
             int itemId;
