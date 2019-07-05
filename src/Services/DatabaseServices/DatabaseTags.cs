@@ -359,7 +359,14 @@ namespace Doccer_Bot.Services.DatabaseServiceComponents
             // get calling user in context of calling guild
             var contextUser = context.User as IGuildUser;
 
+            // if the calling user is the author or a guild admin
             if (context.User.Id == author || contextUser.GuildPermissions.Administrator)
+            {
+                return true;
+            }
+
+            // if the calling user is in sudo mode
+            if (_databaseSudo._sudoersList.Contains(context.User) && _databaseSudo.IsUserSudoer(context))
             {
                 return true;
             }
