@@ -296,7 +296,7 @@ namespace Doccer_Bot.Services
                 {
                     await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name,
                         $"DEBUG - Name: {server.DiscordServer.Name} - Available: {server.DiscordServer.Available} " +
-                        $"Connected: {((SocketGuild) server.DiscordServer).IsConnected}"));
+                        $"Connected: {((SocketGuild) server.DiscordServer).IsConnected} - WE SHOULD NOT SEE THIS. THIS SHOULD BE HANDLED AT THE START OF A TIMER TICK."));
                 }));
                 return CalendarSyncStatus.ServerUnavailable;
             }

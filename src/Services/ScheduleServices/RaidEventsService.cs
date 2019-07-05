@@ -102,6 +102,8 @@ namespace Doccer_Bot.Services
         {
             await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, "Timer ticked."));
 
+            await UpdateServerObjectIfDisconnected();
+
             foreach (var server in Servers.ServerList)
             {
                 // check if it's possible for us to sync
@@ -154,6 +156,22 @@ namespace Doccer_Bot.Services
                     SetServerDiscordObjects(server);
                     // add this server to the ServerList
                     Servers.ServerList.Add(server);
+                }
+            }
+        }
+
+        public async Task UpdateServerObjectIfDisconnected()
+        {
+            var servers = await _databaseServers.GetServersInfo();
+
+            foreach (var server in servers)
+            {
+                // if server object is assigned, the bot is connected, but the bot is not connected to this server, we're probably kicked
+                if (server.DiscordServer != null && server.DiscordServer.Available &&
+                    ((SocketGuild)server.DiscordServer).IsConnected == false)
+                {
+                    await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"DEBUG: Server {server.ServerName} was detected as disconnected, and we are reassigning its object now."));
+                    SetServerDiscordObjects(server);
                 }
             }
         }
