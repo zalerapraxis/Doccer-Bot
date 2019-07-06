@@ -74,7 +74,7 @@ namespace Doccer_Bot.Models
             },
             new CurrencyTradeableItem()
             {
-                Name = "Stardust Cotton Rod",
+                Name = "Stardust Cotton Yarn",
                 ItemID = 24247,
                 CurrencyCost = 20
             },
