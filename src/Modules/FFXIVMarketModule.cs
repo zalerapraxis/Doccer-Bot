@@ -853,7 +853,7 @@ namespace Doccer_Bot.Modules
 
             EmbedBuilder dealsEmbedBuilder = new EmbedBuilder();
 
-            foreach (var item in currencyDeals.Take(25))
+            foreach (var item in currencyDeals.Take(8))
             {
                 StringBuilder dealFieldNameBuilder = new StringBuilder();
                 dealFieldNameBuilder.Append($"{item.Name}");
@@ -863,26 +863,55 @@ namespace Doccer_Bot.Modules
                 dealFieldContentsBuilder.AppendLine($"Avg Sale Price: {item.AvgSalePrice}");
                 dealFieldContentsBuilder.AppendLine($"Currency cost: {item.CurrencyCost}");
                 dealFieldContentsBuilder.AppendLine($"Value ratio: {item.ValueRatio:0.000} gil/c");
-                dealFieldContentsBuilder.Append("Active:");
-                if (item.NumRecentSales >= 5)
-                    dealFieldContentsBuilder.AppendLine(" Yes");
-                else
-                    dealFieldContentsBuilder.AppendLine("No");
-                dealFieldContentsBuilder.Append($"Number of sales: {item.NumRecentSales}");
+
+                dealFieldContentsBuilder.Append($"Recent sales: {item.NumRecentSales}");
                 if (item.NumRecentSales >= 20)
                     dealFieldContentsBuilder.AppendLine("+");
+                else
+                    dealFieldContentsBuilder.AppendLine("");
+
+                if (item.VendorLocation != null)
+                    dealFieldContentsBuilder.AppendLine($"Location: {item.VendorLocation}");
 
                 dealsEmbedBuilder.AddField(dealFieldNameBuilder.ToString(), dealFieldContentsBuilder.ToString(), true);
             }
+
+
+            // build author stuff 
 
             StringBuilder embedNameBuilder = new StringBuilder();
             embedNameBuilder.Append($"{category}");
             if (server != null)
                 embedNameBuilder.Append($" on {server}");
 
+            var authorurl = "";
+
+            switch (category)
+            {
+                case "gc":
+                    authorurl = "https://xivapi.com/i/065000/065004.png";
+                    break;
+                case "poetics":
+                    authorurl = "https://xivapi.com/i/065000/065023.png";
+                    break;
+                case "gemstones":
+                    authorurl = "https://xivapi.com/i/065000/065071.png";
+                    break;
+                case "nuts":
+                    authorurl = "https://xivapi.com/i/065000/065068.png";
+                    break;
+                case "wgs":
+                    authorurl = "https://xivapi.com/i/065000/065069.png";
+                    break;
+                case "wcs":
+                    authorurl = "https://xivapi.com/i/065000/065070.png";
+                    break;
+            }
+
             dealsEmbedBuilder.Author = new EmbedAuthorBuilder()
             {
-                Name = embedNameBuilder.ToString()
+                Name = embedNameBuilder.ToString(),
+                IconUrl = authorurl
             };
             dealsEmbedBuilder.Color = Color.Blue;
 

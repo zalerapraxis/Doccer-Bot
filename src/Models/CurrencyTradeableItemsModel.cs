@@ -98,103 +98,120 @@ namespace Doccer_Bot.Models
             {
                 Name = "Smilodon Skin",
                 ItemID = 27732,
-                CurrencyCost = 2
+                CurrencyCost = 2,
+                VendorLocation = "Lakeland (Amarokeep)"
             },
             new CurrencyTradeableItem()
             {
                 Name = "Hoptrap Leaf",
                 ItemID = 27763,
-                CurrencyCost = 1
+                CurrencyCost = 1,
+                VendorLocation = "Lakeland (Amarokeep)"
             },
             new CurrencyTradeableItem()
             {
                 Name = "Silkmoth Scales",
                 ItemID = 27764,
-                CurrencyCost = 20
+                CurrencyCost = 20,
+                VendorLocation = "Lakeland (Amarokeep)"
             },
             new CurrencyTradeableItem()
             {
                 Name = "Island Wolf Fang",
                 ItemID = 27798,
-                CurrencyCost = 1
+                CurrencyCost = 1,
+                VendorLocation = "Kholusia (Longbeard Council)"
             },
             new CurrencyTradeableItem()
             {
                 Name = "Rail Tenderloin",
                 ItemID = 27850,
-                CurrencyCost = 1
+                CurrencyCost = 1,
+                VendorLocation = "Kholusia (Longbeard Council)"
             },
             new CurrencyTradeableItem()
             {
                 Name = "Ovim Meat",
                 ItemID = 27852,
-                CurrencyCost = 1
+                CurrencyCost = 1,
+                VendorLocation = "Amh Araeng (Twine)"
             },
             new CurrencyTradeableItem()
             {
                 Name = "Zonure Skin",
                 ItemID = 27735,
-                CurrencyCost = 2
+                CurrencyCost = 2,
+                VendorLocation = "Amh Araeng (Twine)"
             },
             new CurrencyTradeableItem()
             {
                 Name = "Ovim Fleece",
                 ItemID = 27756,
-                CurrencyCost = 2
+                CurrencyCost = 2,
+                VendorLocation = "Amh Araeng (Twine)"
             },
             new CurrencyTradeableItem()
             {
                 Name = "Green Glider Skin",
                 ItemID = 27733,
-                CurrencyCost = 2
+                CurrencyCost = 2,
+                VendorLocation = "Il Mheg (Lydha Lran)"
             },
             new CurrencyTradeableItem()
             {
                 Name = "Lorikeet Down",
                 ItemID = 27797,
-                CurrencyCost = 2
+                CurrencyCost = 2,
+                VendorLocation = "Il Mheg (Lydha Lran)"
             },
             new CurrencyTradeableItem()
             {
                 Name = "Lorikeet Egg",
                 ItemID = 27851,
-                CurrencyCost = 1
+                CurrencyCost = 1,
+                VendorLocation = "Il Mheg (Lydha Lran)"
             },
             new CurrencyTradeableItem()
             {
                 Name = "Atrociraptor Skin",
                 ItemID = 27734,
-                CurrencyCost = 2
+                CurrencyCost = 2,
+                VendorLocation = "Greatwood (Fanow)"
             },
             new CurrencyTradeableItem()
             {
                 Name = "Vampire Cup Vine",
                 ItemID = 27773,
-                CurrencyCost = 1
+                CurrencyCost = 1,
+                VendorLocation = "Greatwood (Fanow)"
             },
             new CurrencyTradeableItem()
             {
                 Name = "Vampire Vine Sap",
                 ItemID = 27774,
-                CurrencyCost = 1
+                CurrencyCost = 1,
+                VendorLocation = "Greatwood (Fanow)"
             },
             new CurrencyTradeableItem()
             {
                 Name = "Sea Swallow Skin",
                 ItemID = 27736,
-                CurrencyCost = 2
+                CurrencyCost = 2,
+                VendorLocation = "Tempest (Ondo Cups)"
             },
             new CurrencyTradeableItem()
             {
                 Name = "Cubus Flesh",
                 ItemID = 27799,
-                CurrencyCost = 2
+                CurrencyCost = 2,
+                VendorLocation = "Tempest (Ondo Cups)"
             },
             new CurrencyTradeableItem()
             {
                 Name = "Hydrozoan Umbrella",
                 ItemID = 27800,
-                CurrencyCost = 2
+                CurrencyCost = 2,
+                VendorLocation = "Tempest (Ondo Cups)"
             },
             new CurrencyTradeableItem()
             {
@@ -414,6 +431,7 @@ namespace Doccer_Bot.Models
         public string Name { get; set; }
         public int ItemID { get; set; }
         public double CurrencyCost { get; set; }
+        public string VendorLocation { get; set; }
         public int AvgMarketPrice { get; set; }
         public int AvgSalePrice { get; set; }
         public double ValueRatio { get; set; }
