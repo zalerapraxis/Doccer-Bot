@@ -102,8 +102,6 @@ namespace Doccer_Bot.Services
         {
             await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, "Timer ticked."));
 
-            await UpdateServerObjectIfDisconnected();
-
             foreach (var server in Servers.ServerList)
             {
                 // check if it's possible for us to sync
@@ -125,7 +123,9 @@ namespace Doccer_Bot.Services
                 {
                     if (syncStatus == CalendarSyncStatus.ServerUnavailable)
                     {
-                        await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"Could not tell if we're connected to {server.ServerName} - skipping for now."));
+                        // if the bot detects that a connection error has caused objects to become outdated, we should update them here
+                        await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"DEBUG: Server {server.ServerName} was detected as disconnected, and we are reassigning its object now."));
+                        SetServerDiscordObjects(server);
                     }
                 }
             }
@@ -160,21 +160,6 @@ namespace Doccer_Bot.Services
             }
         }
 
-        public async Task UpdateServerObjectIfDisconnected()
-        {
-            var servers = await _databaseServers.GetServersInfo();
-
-            foreach (var server in servers)
-            {
-                // if server object is assigned, the bot is connected, but the bot is not connected to this server, we're probably kicked
-                if (server.DiscordServer != null && server.DiscordServer.Available &&
-                    ((SocketGuild)server.DiscordServer).IsConnected == false)
-                {
-                    await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"DEBUG: Server {server.ServerName} was detected as disconnected, and we are reassigning its object now."));
-                    SetServerDiscordObjects(server);
-                }
-            }
-        }
 
         // converts stored IDs from database into ulongs (mongo can't store ulong ha ha) and use them to
         // assign our discord objects
