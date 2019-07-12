@@ -28,9 +28,6 @@ namespace Example.Modules
             var channel = Context.Channel as SocketTextChannel;
             var messages = await channel.GetMessagesAsync(count + 1).FlattenAsync();
 
-            // get messages older than two weeks, which cannot be bulk-deleted
-            var oldMessages = messages.Where(msg => msg.Timestamp.AddDays(14) < DateTimeOffset.Now);
-
             var server = Servers.ServerList.Find(x => x.DiscordServer == Context.Guild);
 
             // remove schedule embed message from the messages list, so it doesn't get deleted
@@ -51,9 +48,24 @@ namespace Example.Modules
                 await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name,
                     "Could not bulk delete messages, switching to individual deletion"));
 
+                // notify the user that they started up a manual delete
+                var responseMsg =
+                    await ReplyAsync(
+                        "Some of the messages you selected are older than two weeks, so we have to individually delete them. This will take a minute.");
+
+                // don't delete the notification
+                messages = messages.Where(msg => msg.Id != responseMsg.Id);
+
+                // get messages older than two weeks, which cannot be bulk-deleted, and new messages that can be bulk-deleted
+                var oldMessages = messages.Where(msg => msg.Timestamp < DateTimeOffset.Now.AddDays(-14));
+                var newMessages = messages.Where(msg => msg.Timestamp > DateTimeOffset.Now.AddDays(-14));
+
                 if (oldMessages.Any())
                 {
-                    // individually delete messages two weeks or older
+                    // bulk delete whatever new messages we can
+                    await channel.DeleteMessagesAsync(newMessages);
+
+                    // individually delete old messages
                     foreach (var oldMessage in oldMessages)
                     {
                         await oldMessage.DeleteAsync();
