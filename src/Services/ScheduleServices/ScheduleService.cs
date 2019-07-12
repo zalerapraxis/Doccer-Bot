@@ -66,12 +66,14 @@ namespace Doccer_Bot.Services
                     if (calendarEvent.AlertMessage != null)
                     {
                         await calendarEvent.AlertMessage.ModifyAsync(m => m.Content = messageContents);
+                        await _logger.Log(new LogMessage(LogSeverity.Verbose, GetType().Name, $"DEBUG - {server.ServerName} - An event is between 15m and 1h from now and we did have an alert message, editing it."));
                     }
                     // if there wasn't an alert message, send a new message
                     else
                     {
                         var msg = await server.ReminderChannel.SendMessageAsync(messageContents);
                         calendarEvent.AlertMessage = msg;
+                        await _logger.Log(new LogMessage(LogSeverity.Verbose, GetType().Name, $"DEBUG - {server.ServerName} - An event is between 15m and 1h from now and we did not have an alert message, sending one."));
                     }
                 }
 
@@ -84,12 +86,14 @@ namespace Doccer_Bot.Services
                     if (calendarEvent.AlertMessage != null)
                     {
                         await calendarEvent.AlertMessage.ModifyAsync(m => m.Content = messageContents);
+                        await _logger.Log(new LogMessage(LogSeverity.Verbose, GetType().Name, $"DEBUG - {server.ServerName} - The event is less than 15m from now and we did have an alert message, editing it."));
                     }
                     // if there wasn't an alert message, send a new message
                     else
                     {
                         var msg = await server.ReminderChannel.SendMessageAsync(messageContents);
                         calendarEvent.AlertMessage = msg;
+                        await _logger.Log(new LogMessage(LogSeverity.Verbose, GetType().Name, $"DEBUG - {server.ServerName} - The event is less than 15m from now and we did not have an alert message, sending one."));
                     }
                 }
 
@@ -107,12 +111,14 @@ namespace Doccer_Bot.Services
                     if (calendarEvent.AlertMessage != null)
                     {
                         await calendarEvent.AlertMessage.ModifyAsync(m => m.Content = messageContents);
+                        await _logger.Log(new LogMessage(LogSeverity.Verbose, GetType().Name, $"DEBUG - {server.ServerName} - The event is underway and we had an alert message, editing it."));
                     }
                     // if there wasn't an alert message, send a new message
                     else
                     {
                         var msg = await server.ReminderChannel.SendMessageAsync(messageContents);
                         calendarEvent.AlertMessage = msg;
+                        await _logger.Log(new LogMessage(LogSeverity.Verbose, GetType().Name, $"DEBUG - {server.ServerName} - The event is underway and we did not have an alert message, sending one."));
                     }
                 }
 
@@ -121,6 +127,7 @@ namespace Doccer_Bot.Services
                 {
                     await calendarEvent.AlertMessage.DeleteAsync();
                     calendarEvent.AlertMessage = null;
+                    await _logger.Log(new LogMessage(LogSeverity.Verbose, GetType().Name, $"DEBUG - {server.ServerName} - The event end date is less than 5 mins from now, deleting alert message."));
                 }
 
                 // if the event is over an hour from now and an alert message exists, delete it.
@@ -128,7 +135,12 @@ namespace Doccer_Bot.Services
                 {
                     await calendarEvent.AlertMessage.DeleteAsync();
                     calendarEvent.AlertMessage = null;
+                    await _logger.Log(new LogMessage(LogSeverity.Verbose, GetType().Name, $"DEBUG - {server.ServerName} - The event start date is over an hour away, deleting alert message."));
                 }
+
+                if (calendarEvent.AlertMessage != null)
+                    await _logger.Log(new LogMessage(LogSeverity.Verbose, GetType().Name,
+                    $"DEBUG - msg ID: {calendarEvent.AlertMessage.Id} - edited: {calendarEvent.AlertMessage.EditedTimestamp} - contents: {calendarEvent.AlertMessage.Content}"));
             }
         }
 
