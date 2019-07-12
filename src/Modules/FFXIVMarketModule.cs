@@ -563,9 +563,11 @@ namespace Doccer_Bot.Modules
                 nqFieldBuilder.AppendLine(" Yes");
             else
                 nqFieldBuilder.AppendLine("No");
-            nqFieldBuilder.AppendLine($"Number of sales: {nqMarketAnalysis.NumRecentSales}");
+            nqFieldBuilder.Append($"Number of sales: {nqMarketAnalysis.NumRecentSales}");
             if (nqMarketAnalysis.NumRecentSales >= 20)
                 nqFieldBuilder.AppendLine("+");
+            else
+                nqFieldBuilder.AppendLine("");
 
             analysisEmbedBuilder.AddField("NQ", nqFieldBuilder.ToString());
 
