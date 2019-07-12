@@ -183,7 +183,7 @@ namespace Doccer_Bot.Services
                         StartDate = eventItem.Start.DateTime.Value,
                         EndDate = eventItem.End.DateTime.Value,
                         Timezone = "PST",
-                        UniqueId = eventItem.CreatedRaw
+                        UniqueId = eventItem.Id
                     };
 
                     newEventsList.Add(calendarEvent);
@@ -294,7 +294,7 @@ namespace Doccer_Bot.Services
                 // DEBUG
                 Task.Run((async () =>
                 {
-                    await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name,
+                    await _logger.Log(new LogMessage(LogSeverity.Debug, GetType().Name,
                         $"DEBUG - Name: {server.DiscordServer.Name} - Available: {server.DiscordServer.Available} " +
                         $"Connected: {((SocketGuild) server.DiscordServer).IsConnected} - WE SHOULD NOT SEE THIS. THIS SHOULD BE HANDLED AT THE START OF A TIMER TICK."));
                 }));
