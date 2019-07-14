@@ -60,17 +60,30 @@ namespace Doccer_Bot.Modules
         [Command("tag add", RunMode = RunMode.Async)]
         [Summary("Add a new tag")]
         [Alias("tag create")]
-        [Example("tag add {name} {content}")]
-        public async Task TagAddCommandAsync(string tagName, [Remainder] string content)
+        [Example("tag add {name} {content} - can also upload a file with the command to add that file to a tag")]
+        public async Task TagAddCommandAsync(string tagName, [Remainder] string content = null)
         {
-            if (!content.Any())
+            bool messageContainsAttachment = Context.Message.Attachments.Any();
+
+            if (content == null && !messageContainsAttachment)
             {
                 await ReplyAsync(
                     "You did not enter anything to put inside the tag. The syntax is `.tag add name content`.");
                 return;
             }
 
-            var success = await DatabaseTags.AddTagToDatabase(Context, tagName, content);
+            StringBuilder tagContents = new StringBuilder();
+            if (content != null)
+                tagContents.AppendLine(content);
+            if (messageContainsAttachment)
+            {
+                foreach (var attachment in Context.Message.Attachments)
+                {
+                    tagContents.AppendLine(attachment.Url);
+                }
+            }
+
+            var success = await DatabaseTags.AddTagToDatabase(Context, tagName, tagContents.ToString());
 
             if (success)
                 await ReplyAsync($"Tag '{tagName}' added.");
