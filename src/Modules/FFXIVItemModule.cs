@@ -15,6 +15,7 @@ using Doccer_Bot.Services;
 namespace Doccer_Bot.Modules
 {
     [Name("Item")]
+    [Remarks("Searching for FFXIV items")]
     public class FFXIVItemModule : InteractiveBase
     {
         public MarketService MarketService { get; set; }

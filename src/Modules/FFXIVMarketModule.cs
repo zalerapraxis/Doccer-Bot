@@ -17,6 +17,7 @@ using Flurl.Util;
 namespace Doccer_Bot.Modules
 {
     [Name("Market")]
+    [Remarks("Realtime FFXIV market data")]
     public class FFXIVMarketModule : InteractiveBase
     {
         public MarketService MarketService { get; set; }
@@ -539,7 +540,7 @@ namespace Doccer_Bot.Modules
             if (hqMarketAnalysis.NumRecentSales != 0)
             {
                 StringBuilder hqFieldBuilder = new StringBuilder();
-                hqFieldBuilder.AppendLine($"Avg Market Price: {hqMarketAnalysis.AvgMarketPrice}");
+                hqFieldBuilder.AppendLine($"Avg Listed Price: {hqMarketAnalysis.AvgMarketPrice}");
                 hqFieldBuilder.AppendLine($"Avg Sale Price: {hqMarketAnalysis.AvgSalePrice}");
                 hqFieldBuilder.AppendLine($"Differential: {hqMarketAnalysis.Differential}%");
                 hqFieldBuilder.Append("Active:");
@@ -555,7 +556,7 @@ namespace Doccer_Bot.Modules
             }
             // nq stuff - first line inline=true in case we had hq values
             StringBuilder nqFieldBuilder = new StringBuilder();
-            nqFieldBuilder.AppendLine($"Avg Market Price: {nqMarketAnalysis.AvgMarketPrice}");
+            nqFieldBuilder.AppendLine($"Avg Listed Price: {nqMarketAnalysis.AvgMarketPrice}");
             nqFieldBuilder.AppendLine($"Avg Sale Price: {nqMarketAnalysis.AvgSalePrice}");
             nqFieldBuilder.AppendLine($"Differential: {nqMarketAnalysis.Differential}%");
             nqFieldBuilder.Append("Active:");
@@ -751,7 +752,7 @@ namespace Doccer_Bot.Modules
                     dealFieldNameBuilder.Append(" - NQ");
 
                 StringBuilder dealFieldContentsBuilder = new StringBuilder();
-                dealFieldContentsBuilder.AppendLine($"Avg Market Price: {item.AvgMarketPrice}");
+                dealFieldContentsBuilder.AppendLine($"Avg Listed Price: {item.AvgMarketPrice}");
                 dealFieldContentsBuilder.AppendLine($"Avg Sale Price: {item.AvgSalePrice}");
                 dealFieldContentsBuilder.AppendLine($"Differential: {item.Differential}%");
                 dealFieldContentsBuilder.AppendLine($"Number of sales: {item.NumRecentSales}");
@@ -843,7 +844,7 @@ namespace Doccer_Bot.Modules
             // grab data from api
             var currencyDeals = await MarketService.GetBestCurrencyExchange(category, server);
 
-            // keep items that are actively selling, and order by value ratio to put the best stuff on top
+            // keep items that are actively selling, and order by value ratio to put the best stuff to sell on top
             currencyDeals = currencyDeals.Where(x => x.NumRecentSales > 5).OrderByDescending(x => x.ValueRatio).ToList();
 
             // catch if the user didn't send a good category
@@ -861,7 +862,7 @@ namespace Doccer_Bot.Modules
                 dealFieldNameBuilder.Append($"{item.Name}");
 
                 StringBuilder dealFieldContentsBuilder = new StringBuilder();
-                dealFieldContentsBuilder.AppendLine($"Avg Market Price: {item.AvgMarketPrice}");
+                dealFieldContentsBuilder.AppendLine($"Avg Listed Price: {item.AvgMarketPrice}");
                 dealFieldContentsBuilder.AppendLine($"Avg Sale Price: {item.AvgSalePrice}");
                 dealFieldContentsBuilder.AppendLine($"Currency cost: {item.CurrencyCost}");
                 dealFieldContentsBuilder.AppendLine($"Value ratio: {item.ValueRatio:0.000} gil/c");
@@ -917,7 +918,7 @@ namespace Doccer_Bot.Modules
             };
             dealsEmbedBuilder.Color = Color.Blue;
 
-            await ReplyAsync(null, false, dealsEmbedBuilder.Build());
+            await ReplyAsync("Items are sorted in descending order by their value ratio - items that are better to sell are at the top.", false, dealsEmbedBuilder.Build());
         }
 
 

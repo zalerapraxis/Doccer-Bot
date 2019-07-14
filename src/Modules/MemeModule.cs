@@ -11,6 +11,7 @@ using Doccer_Bot.Services;
 namespace Doccer_Bot.Modules
 {
     [Name("Memes")]
+    [Remarks("Dumb shit")]
     public class MemeModule : InteractiveBase
     {
         public DatabaseService DatabaseService { get; set; }

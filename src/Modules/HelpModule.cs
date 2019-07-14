@@ -9,6 +9,7 @@ using Doccer_Bot.Modules.Common;
 namespace Example.Modules
 {
     [Name("Help")]
+    [Remarks("You are here.")]
     public class HelpModule : ModuleBase<SocketCommandContext>
     {
         private readonly CommandService _service;
@@ -62,35 +63,23 @@ namespace Example.Modules
         }
 
         [Command("help")]
-        [Summary("Displays a full list of available commands.")]
+        [Summary("Displays a list of command modules.")]
         public async Task HelpAsync()
         {
-            string prefix = _config["prefix"];
             var builder = new EmbedBuilder()
             {
                 Color = Color.Blue,
-                //Description = "These are the commands you can use."
+                Description = "These are the command modules you have access to. Use .helpmod {module} to see the commands in each."
             };
             
             foreach (var module in _service.Modules)
             {
-                string description = null;
-                foreach (var cmd in module.Commands)
+                builder.AddField(x =>
                 {
-                    var result = await cmd.CheckPreconditionsAsync(Context);
-                    if (result.IsSuccess)
-                        description += $"{prefix}{cmd.Aliases.First()} - {cmd.Summary}\n";
-                }
-                
-                if (!string.IsNullOrWhiteSpace(description))
-                {
-                    builder.AddField(x =>
-                    {
-                        x.Name = module.Name;
-                        x.Value = description;
-                        x.IsInline = false;
-                    });
-                }
+                    x.Name = module.Name;
+                    x.Value = module.Remarks;
+                    x.IsInline = false;
+                });
             }
 
             await ReplyAsync("", false, builder.Build());
