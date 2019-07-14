@@ -117,35 +117,35 @@ namespace Doccer_Bot.Models
                 Name = "Smilodon Skin",
                 ItemID = 27732,
                 CurrencyCost = 2,
-                VendorLocation = "Lakeland (Amarokeep)"
+                VendorLocation = "Lakeland (Fort Jobb)"
             },
             new CurrencyTradeableItem()
             {
                 Name = "Hoptrap Leaf",
                 ItemID = 27763,
                 CurrencyCost = 1,
-                VendorLocation = "Lakeland (Amarokeep)"
+                VendorLocation = "Lakeland (Fort Jobb)"
             },
             new CurrencyTradeableItem()
             {
                 Name = "Silkmoth Scales",
                 ItemID = 27764,
                 CurrencyCost = 20,
-                VendorLocation = "Lakeland (Amarokeep)"
+                VendorLocation = "Lakeland (Fort Jobb)"
             },
             new CurrencyTradeableItem()
             {
                 Name = "Island Wolf Fang",
                 ItemID = 27798,
                 CurrencyCost = 1,
-                VendorLocation = "Kholusia (Longbeard Council)"
+                VendorLocation = "Kholusia (Tomra)"
             },
             new CurrencyTradeableItem()
             {
                 Name = "Rail Tenderloin",
                 ItemID = 27850,
                 CurrencyCost = 1,
-                VendorLocation = "Kholusia (Longbeard Council)"
+                VendorLocation = "Kholusia (Tomra)"
             },
             new CurrencyTradeableItem()
             {
