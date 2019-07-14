@@ -14,10 +14,12 @@ using Doccer_Bot.Services.DatabaseServiceComponents;
 namespace Doccer_Bot.Modules
 {
     [Name("Tags")]
+    [Remarks("Store & retrieve info, links, funny stuff, etc.")]
     public class TagModule : InteractiveBase
     {
         public DatabaseTags DatabaseTags { get; set; }
         public DiscordSocketClient DiscordSocketClient { get; set; }
+        public EventReactionAddedService EventReactionAddedService { get; set; }
 
         private Dictionary<IUser, IUserMessage> _dictFindTagUserEmbedPairs = new Dictionary<IUser, IUserMessage>();
         
@@ -78,9 +80,18 @@ namespace Doccer_Bot.Modules
 
 
         [Command("tag make", RunMode = RunMode.Async)]
-        [Summary("Make a new tag interactively")]
+        [Summary("React a ⭐ to a message you want to make into a tag")]
         public async Task TagMakeCommandAsync(string tagName = null)
         {
+            // find a msg that the calling user has reacted with the right emote to
+            IEmote starEmote = new Emoji("⭐");
+            var message = await EventReactionAddedService.GetMessageByReactionAdded(starEmote, Context);
+
+            if (message == null)
+            {
+                await ReplyAsync($"You need to select a message (using an {starEmote} reaction) to use this command.");
+            }
+
             await ReplyAsync("What do you want to name your tag?");
             var userResponseTagName = await NextMessageAsync(true, true, TimeSpan.FromSeconds(30));
             if (userResponseTagName == null)
@@ -89,15 +100,7 @@ namespace Doccer_Bot.Modules
                 return;
             }
 
-            await ReplyAsync("What do you want the tag contents to be?");
-            var userResponseTagContent = await NextMessageAsync(true, true, TimeSpan.FromSeconds(300));
-            if (userResponseTagContent == null)
-            {
-                await ReplyAsync("You took too long setting tag contents. Try again.");
-                return;
-            }
-
-            var success = await DatabaseTags.AddTagToDatabase(Context, userResponseTagName.Content, userResponseTagContent.Content);
+            var success = await DatabaseTags.AddTagToDatabase(Context, userResponseTagName.Content, message.Message.Content);
 
             if (success)
                 await ReplyAsync($"Tag '{userResponseTagName}' added.");
@@ -305,14 +308,26 @@ namespace Doccer_Bot.Modules
             if (results.Any())
             {
                 EmbedBuilder embedBuilder = new EmbedBuilder();
-                StringBuilder stringBuilder = new StringBuilder();
+                StringBuilder tagsColumn1builder = new StringBuilder();
+                StringBuilder tagsColumn2builder = new StringBuilder();
 
+                var i = 0;
                 foreach (var result in results)
                 {
-                    stringBuilder.AppendLine(result);
+                    // 0 for left column, 1 for right, 2 resets to 0
+                    // creates two strings containing alternating lists of meme names from memes list
+                    if (i == 2)
+                        i = 0;
+                    if (i == 0)
+                        tagsColumn1builder.AppendLine(result);
+                    if (i == 1)
+                        tagsColumn2builder.AppendLine(result);
+
+                    i++;
                 }
 
-                embedBuilder.AddField("Tags", stringBuilder.ToString(), true);
+                embedBuilder.AddField("Tags", tagsColumn1builder.ToString(), true);
+                embedBuilder.AddField("\u200b", tagsColumn2builder.ToString(), true);
 
                 await ReplyAsync(null, false, embedBuilder.Build());
             }
