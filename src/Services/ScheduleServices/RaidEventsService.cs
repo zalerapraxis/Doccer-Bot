@@ -112,7 +112,8 @@ namespace Doccer_Bot.Services
                     // try to sync from calendar
                     _googleCalendarSyncService.SyncFromGoogleCalendar(server);
 
-                    await _scheduleService.HandleReminders(server);
+                    if (server.RemindersEnabled)
+                        await _scheduleService.HandleReminders(server);
 
                     // modify events embed in reminders to reflect newly synced values
                     // don't care if syncfromgooglecalendar succeeded or not, because we have placeholder

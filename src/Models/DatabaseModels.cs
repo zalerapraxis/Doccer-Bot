@@ -71,6 +71,9 @@ namespace Doccer_Bot.Services
         [BsonElement("calendar_id")]
         public string CalendarId { get; set; }
 
+        [BsonElement("reminders_enabled")]
+        public bool RemindersEnabled { get; set; }
+
         [BsonIgnore]
         public List<CalendarEvent> Events = new List<CalendarEvent>();
 
@@ -82,6 +85,7 @@ namespace Doccer_Bot.Services
 
         [BsonIgnore]
         public ITextChannel ReminderChannel { get; set; }
+
 
         [BsonIgnore]
         public IUserMessage EventEmbedMessage { get; set; }
