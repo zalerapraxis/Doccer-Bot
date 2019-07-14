@@ -50,6 +50,24 @@ namespace Doccer_Bot.Models
                 ItemID = 7807,
                 CurrencyCost = 450
             },
+            new CurrencyTradeableItem()
+            {
+                Name = "Cordial",
+                ItemID = 6141,
+                CurrencyCost = 500
+            },
+            new CurrencyTradeableItem()
+            {
+                Name = "Glamour Prism",
+                ItemID = 21800,
+                CurrencyCost = 200
+            },
+            new CurrencyTradeableItem()
+            {
+                Name = "Glamour Dispeller",
+                ItemID = 7621,
+                CurrencyCost = 200
+            }
         };
 
         public static List<CurrencyTradeableItem> PoeticsItemsList = new List<CurrencyTradeableItem>()
