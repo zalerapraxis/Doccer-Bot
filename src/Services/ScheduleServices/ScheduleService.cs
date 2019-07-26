@@ -54,7 +54,8 @@ namespace Doccer_Bot.Services
                     calendarEvent.AlertMessage = oldReminderMessage;
 
                 // get amount of time between the calendarevent start time and the current time
-                var timeStartDelta = calendarEvent.StartDate - TimezoneAdjustedDateTime.Now.Invoke();
+                // and round it to the nearest 5m interval, so usually on the 5m interval
+                var timeStartDelta = RoundToNearestMinutes(calendarEvent.StartDate - TimezoneAdjustedDateTime.Now.Invoke(), 5);
 
                 // if it's less than an hour but more than fifteen minutes, and we haven't sent an alert message, send an alert message
                 if (timeStartDelta.TotalHours < 1 && timeStartDelta.TotalMinutes > 15)
@@ -103,9 +104,9 @@ namespace Doccer_Bot.Services
                     calendarEvent.EndDate > TimezoneAdjustedDateTime.Now.Invoke())
                 {
                     // get amount of time between the current time and the calendarevent end time
-                    var timeEndDelta = calendarEvent.EndDate - TimezoneAdjustedDateTime.Now.Invoke();
+                    var timeEndDelta = RoundToNearestMinutes(calendarEvent.EndDate - TimezoneAdjustedDateTime.Now.Invoke(), 5);
 
-                    var messageContents = $"{calendarEvent.Name} is underway, ending in {timeEndDelta.Minutes} minutes.";
+                    var messageContents = $"{calendarEvent.Name} is underway, ending in" + GetTimeDeltaFormatting(timeEndDelta) + ".";
 
                     // if there's an alert message already, edit it
                     if (calendarEvent.AlertMessage != null)
@@ -216,6 +217,7 @@ namespace Doccer_Bot.Services
                     continue;
 
                 // get the time difference between the event and now
+                // roundtonearestminutes wrapper will round it to closest 5m interval
                 TimeSpan timeDelta;
 
                 // holy fucking formatting batman
@@ -226,7 +228,7 @@ namespace Doccer_Bot.Services
                 {
                     stringBuilder.AppendLine($"Starts on {calendarEvent.StartDate,0:M/dd} at {calendarEvent.StartDate,0: h:mm tt} {calendarEvent.Timezone} and ends at {calendarEvent.EndDate,0: h:mm tt} {calendarEvent.Timezone}");
                     stringBuilder.Append(":watch: Starts in");
-                    timeDelta = calendarEvent.StartDate - TimezoneAdjustedDateTime.Now.Invoke();
+                    timeDelta = RoundToNearestMinutes(calendarEvent.StartDate - TimezoneAdjustedDateTime.Now.Invoke(), 5);
                 }
                     
                 // if event has started but hasn't finished
@@ -235,31 +237,12 @@ namespace Doccer_Bot.Services
                 {
                     stringBuilder.AppendLine($"Currently underway, ending at {calendarEvent.EndDate,0: h:mm tt} {calendarEvent.Timezone}");
                     stringBuilder.Append(":watch: Ends in");
-                    timeDelta = calendarEvent.EndDate - TimezoneAdjustedDateTime.Now.Invoke();
+                    timeDelta = RoundToNearestMinutes(calendarEvent.EndDate - TimezoneAdjustedDateTime.Now.Invoke(), 5);
                 }
 
 
-                // days
-                if (timeDelta.Days == 1)
-                    stringBuilder.Append($" {timeDelta.Days} day");
-                if (timeDelta.Days > 1)
-                    stringBuilder.Append($" {timeDelta.Days} days");
-                // comma
-                if (timeDelta.Days >= 1 && (timeDelta.Hours > 0 || timeDelta.Minutes > 0))
-                    stringBuilder.Append(",");
-                // hours
-                if (timeDelta.Hours == 1)
-                    stringBuilder.Append($" {timeDelta.Hours} hour");
-                if (timeDelta.Hours > 1)
-                    stringBuilder.Append($" {timeDelta.Hours} hours");
-                // and
-                if (timeDelta.Hours > 0 && timeDelta.Minutes > 0)
-                    stringBuilder.Append(" and");
-                // minutes
-                if (timeDelta.Minutes == 1)
-                    stringBuilder.Append($" {timeDelta.Minutes} minute");
-                if (timeDelta.Minutes > 1)
-                    stringBuilder.Append($" {timeDelta.Minutes} minutes");
+                // get formatting for timedelta
+                stringBuilder.Append(GetTimeDeltaFormatting(timeDelta));
 
                 stringBuilder.Append(".");
 
@@ -320,6 +303,42 @@ namespace Doccer_Bot.Services
             {
                 return null;
             }
+        }
+
+        private string GetTimeDeltaFormatting(TimeSpan timeDelta)
+        {
+            StringBuilder stringBuilder = new StringBuilder();
+
+            // days
+            if (timeDelta.Days == 1)
+                stringBuilder.Append($" {timeDelta.Days} day");
+            if (timeDelta.Days > 1)
+                stringBuilder.Append($" {timeDelta.Days} days");
+            // comma
+            if (timeDelta.Days >= 1 && (timeDelta.Hours > 0 || timeDelta.Minutes > 0))
+                stringBuilder.Append(",");
+            // hours
+            if (timeDelta.Hours == 1)
+                stringBuilder.Append($" {timeDelta.Hours} hour");
+            if (timeDelta.Hours > 1)
+                stringBuilder.Append($" {timeDelta.Hours} hours");
+            // and
+            if (timeDelta.Hours > 0 && timeDelta.Minutes > 0)
+                stringBuilder.Append(" and");
+            // minutes
+            if (timeDelta.Minutes == 1)
+                stringBuilder.Append($" {timeDelta.Minutes} minute");
+            if (timeDelta.Minutes > 1)
+                stringBuilder.Append($" {timeDelta.Minutes} minutes");
+
+            return stringBuilder.ToString();
+        }
+
+        public TimeSpan RoundToNearestMinutes(TimeSpan input, int minutes)
+        {
+            var totalMinutes = (int)(input + new TimeSpan(0, minutes / 2, 0)).TotalMinutes;
+
+            return new TimeSpan(0, totalMinutes - totalMinutes % minutes, 0);
         }
     }
 }

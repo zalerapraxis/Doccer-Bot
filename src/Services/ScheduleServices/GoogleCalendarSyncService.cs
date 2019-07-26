@@ -169,19 +169,36 @@ namespace Doccer_Bot.Services
                 {
                     // api wrapper will always pull times in local time aka eastern because it sucks
                     // so just subtract 3 hours to get pacific time
-                    eventItem.Start.DateTime = eventItem.Start.DateTime - TimeSpan.FromHours(3);
-                    eventItem.End.DateTime = eventItem.End.DateTime - TimeSpan.FromHours(3);
+                    eventItem.Start.DateTime = eventItem.Start.DateTime - TimeSpan.FromHours(7);
+                    eventItem.End.DateTime = eventItem.End.DateTime - TimeSpan.FromHours(7);
 
                     // don't add items from the past
                     if (eventItem.End.DateTime < TimezoneAdjustedDateTime.Now.Invoke())
                         continue;
 
+                    var wot = eventItem.Start.Date;
+                    var test = DateTime.Parse(wot);
+
+                    DateTime startDate;
+                    DateTime endDate;
+
+                    if (eventItem.Start.DateTime.HasValue == false || eventItem.End.DateTime.HasValue == false)
+                    {
+                        startDate = DateTime.Parse(eventItem.Start.Date);
+                        endDate = DateTime.Parse(eventItem.End.Date);
+                    }
+                    else
+                    {
+                        startDate = eventItem.Start.DateTime.Value;
+                        endDate = eventItem.End.DateTime.Value;
+                    }
+
                     // build calendar event to be added to our list
                     var calendarEvent = new CalendarEvent()
                     {
                         Name = eventItem.Summary,
-                        StartDate = eventItem.Start.DateTime.Value,
-                        EndDate = eventItem.End.DateTime.Value,
+                        StartDate = startDate,
+                        EndDate = endDate,
                         Timezone = "PST",
                         UniqueId = eventItem.Id
                     };
@@ -428,8 +445,8 @@ namespace Doccer_Bot.Services
 
     public static class TimezoneAdjustedDateTime
     {
-        // the bot runs in eastern time and we want pacific time, and we want to have easy access
-        // to the current time (in pacific) - so return the current time minus three hours
-        public static Func<DateTime> Now = () => DateTime.Now - TimeSpan.FromHours(3);
+        // the bot runs in utc and we want pacific time, and we want to have easy access
+        // to the current time (in pacific) - so return the current time minus seven hours
+        public static Func<DateTime> Now = () => DateTime.Now - TimeSpan.FromHours(7);
     }
 }

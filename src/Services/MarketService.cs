@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Text;
@@ -27,21 +28,43 @@ namespace Doccer_Bot.Services
         private string _xivapiKey;
         public List<String> ServerList = new List<string>()
         {
+            "gilgamesh", // first server on list is that datacenter's home server
             "adamantoise",
             "cactuar",
             "faerie",
-            "gilgamesh",
             "jenova",
             "midgardsormr",
             "sargatanas",
             "siren"
+        };
+        public List<String> ServerList_Aether = new List<string>()
+        {
+            "gilgamesh", // first server on list is that datacenter's home server
+            "adamantoise",
+            "cactuar",
+            "faerie",
+            "jenova",
+            "midgardsormr",
+            "sargatanas",
+            "siren"
+        };
+        public List<String> ServerList_Primal = new List<string>()
+        {
+            "leviathan", // first server on list is that datacenter's home server
+            "famfrit",
+            "hyperion",
+            "ultros",
+            //"behemoth",
+            //"excalibur",
+            //"exodus",
+            //"lamia"
         };
 
         // Set to 1 to (hopefully) force parallel.foreach loops to run one at a time (synchronously)
         // set to -1 for default behavior
         private static ParallelOptions parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = -1 };
         private int exceptionRetryCount = 5; // number of times to retry api requests
-        private int exceptionRetryDelay = 1000; // ms
+        private int exceptionRetryDelay = 1000; // ms delay between retries
 
         public MarketService(IConfigurationRoot config, LoggingService logger)
         {
@@ -53,11 +76,11 @@ namespace Doccer_Bot.Services
             // set this so httpclient can make multiple connections at once
             ServicePointManager.DefaultConnectionLimit = 200;
 
-            // to make the parallel.foreach use more threads
+            // to make parallel.foreach use more threads
             ThreadPool.SetMinThreads(200, 200);
         }
 
-        // gets list of items, loads them into an ordereddictionary, returns dictionary or null if request failed
+        // gets list of items, loads them into an list, returns list of items or empty list if request failed
         public async Task<List<ItemSearchResultModel>> SearchForItemByName(string searchTerm)
         {
             var apiResponse = await QueryXivapiWithString(searchTerm);
@@ -67,7 +90,34 @@ namespace Doccer_Bot.Services
             // if api failure, return empty list
             if (apiResponse.GetType() == typeof(MarketAPIRequestFailureStatus) &&
                 apiResponse == MarketAPIRequestFailureStatus.APIFailure)
+                return null; // empty list
+
+            // if no results, return empty list
+            if (apiResponse.GetType() == typeof(MarketAPIRequestFailureStatus) &&
+                apiResponse == MarketAPIRequestFailureStatus.NoResults)
                 return tempItemList;
+
+            foreach (var item in apiResponse.Results)
+                tempItemList.Add(new ItemSearchResultModel()
+                {
+                    Name = item.Name,
+                    ID = (int)item.ID
+                });
+
+            return tempItemList;
+        }
+
+        // gets list of items, loads them into an list, returns list of items or empty list if request failed
+        public async Task<List<ItemSearchResultModel>> SearchForItemByNameExact(string searchTerm)
+        {
+            var apiResponse = await QueryXivapiWithStringExact(searchTerm);
+
+            var tempItemList = new List<ItemSearchResultModel>();
+
+            // if api failure, return empty list
+            if (apiResponse.GetType() == typeof(MarketAPIRequestFailureStatus) &&
+                apiResponse == MarketAPIRequestFailureStatus.APIFailure)
+                return null; // empty list
 
             // if no results, return empty list
             if (apiResponse.GetType() == typeof(MarketAPIRequestFailureStatus) &&
@@ -85,7 +135,7 @@ namespace Doccer_Bot.Services
         }
 
         // take an item id and get the lowest market listings from across all servers, return list of MarketList of MarketItemListings
-        public async Task<List<MarketItemListingModel>> GetMarketListingsFromApi(string itemName, int itemId, string serverFilter = null)
+        public async Task<List<MarketItemListingModel>> GetMarketListings(string itemName, int itemId, Datacenter datacenter, string serverFilter = null)
         {   
             List<MarketItemListingModel> tempMarketList = new List<MarketItemListingModel>();
 
@@ -95,29 +145,21 @@ namespace Doccer_Bot.Services
             if (serverFilter != null)
                 tempServerList.Add(serverFilter);
             else
-                tempServerList.AddRange(ServerList);
+            {
+                if (datacenter == Datacenter.Aether)
+                    tempServerList.AddRange(ServerList_Aether);
+                if (datacenter == Datacenter.Primal)
+                    tempServerList.AddRange(ServerList_Primal);
+            }
 
             // get all market entries for specified item across all servers, bundle results into tempMarketList
             var tasks = Task.Run(() => Parallel.ForEach(tempServerList, parallelOptions, server =>
             {
                 var apiResponse = QueryCustomApiForListings(itemId, server).Result;
 
-                // check if custom API handled error
-                if (apiResponse.GetType() == typeof(MarketAPIRequestFailureStatus))
-                {
-                    if (apiResponse == MarketAPIRequestFailureStatus.NotLoggedIn)
-                        return;
-                    if (apiResponse == MarketAPIRequestFailureStatus.UnderMaintenance)
-                        return;
-                    if (apiResponse == MarketAPIRequestFailureStatus.AccessDenied)
-                        return;
-                    if (apiResponse == MarketAPIRequestFailureStatus.ServiceUnavailable)
-                        return;
-                    if (apiResponse == MarketAPIRequestFailureStatus.NoResults)
-                        return;
-                    if (apiResponse == MarketAPIRequestFailureStatus.APIFailure)
-                        return;
-                }
+                // check if custom API handled error - modules check for this first so this shouldn't be necessary
+                if (!IsAPIUsable(apiResponse))
+                    return;
 
                 foreach (var listing in apiResponse.Prices)
                 {
@@ -139,13 +181,13 @@ namespace Doccer_Bot.Services
             await Task.WhenAll(tasks);
 
             // sort the list by the item price
-            tempMarketList = tempMarketList.OrderBy(item => item.CurrentPrice).ToList();
+            tempMarketList = tempMarketList.OrderBy(x => x.CurrentPrice).ToList();
 
             return tempMarketList;
         }
 
         // take an item id and get the lowest market listings from across all servers, return list of MarketList of MarketItemListings
-        public async Task<List<HistoryItemListingModel>> GetHistoryListingsFromApi(string itemName, int itemId, string serverFilter = null)
+        public async Task<List<HistoryItemListingModel>> GetHistoryListings(string itemName, int itemId, Datacenter datacenter, string serverFilter = null)
         {
             List<HistoryItemListingModel> tempHistoryList = new List<HistoryItemListingModel>();
 
@@ -155,29 +197,21 @@ namespace Doccer_Bot.Services
             if (serverFilter != null)
                 tempServerList.Add(serverFilter);
             else
-                tempServerList.AddRange(ServerList);
+            {
+                if (datacenter == Datacenter.Aether)
+                    tempServerList.AddRange(ServerList_Aether);
+                if (datacenter == Datacenter.Primal)
+                    tempServerList.AddRange(ServerList_Primal);
+            }
 
             // get all market entries for specified item across all servers, bundle results into tempMarketList
             var tasks = Task.Run(() => Parallel.ForEach(tempServerList, parallelOptions, server =>
             {
                 var apiResponse = QueryCustomApiForHistory(itemId, server).Result;
 
-                // check if custom API handled error
-                if (apiResponse.GetType() == typeof(MarketAPIRequestFailureStatus))
-                {
-                    if (apiResponse == MarketAPIRequestFailureStatus.NotLoggedIn)
-                        return;
-                    if (apiResponse == MarketAPIRequestFailureStatus.UnderMaintenance)
-                        return;
-                    if (apiResponse == MarketAPIRequestFailureStatus.AccessDenied)
-                        return;
-                    if (apiResponse == MarketAPIRequestFailureStatus.ServiceUnavailable)
-                        return;
-                    if (apiResponse == MarketAPIRequestFailureStatus.NoResults)
-                        return;
-                    if (apiResponse == MarketAPIRequestFailureStatus.APIFailure)
-                        return;
-                }
+                // check if custom API handled error - modules check for this first so this shouldn't be necessary
+                if (!IsAPIUsable(apiResponse))
+                    return;
 
                 foreach (var listing in apiResponse.history)
                 {
@@ -210,54 +244,17 @@ namespace Doccer_Bot.Services
             return tempHistoryList;
         }
 
-        // get the status of the Companion API
-        public async Task<MarketAPIRequestFailureStatus> GetCompanionApiStatus()
-        {
-            // run test query
-            var apiResponse = await QueryCustomApiForHistory(5, "gilgamesh");
-
-            // if apiresponse does not return a status type, then it should be running fine
-            if (apiResponse.GetType() != typeof(MarketAPIRequestFailureStatus))
-                return MarketAPIRequestFailureStatus.OK;
-
-            // if it does return a status type, pass that back to calling function
-            return apiResponse;
-        }
-
-        // get item data from XIVAPI using item ID - generally used to get an item's name
-        public async Task<dynamic> QueryXivapiWithItemId(int itemId)
-        { 
-            var i = 0;
-            while (i < exceptionRetryCount)
-            {
-                try
-                {
-                    dynamic apiResponse = await $"https://xivapi.com/item/{itemId}".GetJsonAsync();
-
-                    return apiResponse;
-                }
-                catch (FlurlHttpException exception)
-                {
-                    // check if no results - flurl sees XIVAPI respond with a 'code 404' if it can't find an item
-                    // so it'll throw an exception - we can't check the response body for its contents like we can the custom API
-                    if (exception.Call.HttpStatus == HttpStatusCode.NotFound)
-                        return MarketAPIRequestFailureStatus.NoResults;
-
-                    await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"{exception.Message}"));
-                    await Task.Delay(exceptionRetryDelay);
-                }
-                i++;
-            }
-
-            // return generic api failure code
-            return MarketAPIRequestFailureStatus.APIFailure;
-        }
 
         // returns three analysis objects: hq, nq, and overall
-        public async Task<List<MarketItemAnalysisModel>> CreateMarketAnalysis(string itemName, int itemID, string server = null)
+        public async Task<List<MarketItemAnalysisModel>> CreateMarketAnalysis(string itemName, int itemID, Datacenter datacenter, string server = null)
         {
             if (server == null)
-                server = "gilgamesh";
+            {
+                if (datacenter == Datacenter.Aether)
+                    server = ServerList_Aether[0];
+                if (datacenter == Datacenter.Primal)
+                    server = ServerList_Primal[0];
+            }
 
             var analysisHQ = new MarketItemAnalysisModel();
             var analysisNQ = new MarketItemAnalysisModel();
@@ -274,8 +271,8 @@ namespace Doccer_Bot.Services
             analysisOverall.IsHQ = false;
 
             // make API requests for data
-            var apiHistoryResponse = await GetHistoryListingsFromApi(itemName, itemID, server);
-            var apiMarketResponse = await GetMarketListingsFromApi(itemName, itemID, server);
+            var apiHistoryResponse = await GetHistoryListings(itemName, itemID, datacenter, server);
+            var apiMarketResponse = await GetHistoryListings(itemName, itemID, datacenter, server);
 
             // split history results by quality
             var salesHQ = apiHistoryResponse.Where(x => x.IsHq == true).ToList();
@@ -382,7 +379,7 @@ namespace Doccer_Bot.Services
         }
 
 
-        public async Task<List<MarketItemAnalysisModel>> GetBestDealsForSearchTerms(string searchTerms, int lowerIlevel, int upperIlevel, string server = null)
+        public async Task<List<MarketItemAnalysisModel>> GetBestDealsForSearchTerms(string searchTerms, int lowerIlevel, int upperIlevel, Datacenter datacenter, string server = null)
         {
             var apiResponse = await QueryXivapiWithStringAndILevels(searchTerms, lowerIlevel, upperIlevel);
 
@@ -401,7 +398,7 @@ namespace Doccer_Bot.Services
 
             var tasks = Task.Run(() => Parallel.ForEach(responseList, parallelOptions, item =>
             {
-                var analysis = CreateMarketAnalysis(item.Name, item.ID, server).Result;
+                var analysis = CreateMarketAnalysis(item.Name, item.ID, datacenter, server).Result;
                 results.AddRange(analysis);
             }));
 
@@ -411,7 +408,7 @@ namespace Doccer_Bot.Services
         }
 
 
-        public async Task<List<CurrencyTradeableItem>> GetBestCurrencyExchange(string category, string server = null)
+        public async Task<List<CurrencyTradeableItem>> GetBestCurrencyExchange(string category, Datacenter datacenter, string server = null)
         {
             List<CurrencyTradeableItem> itemsList = new List<CurrencyTradeableItem>(); // gets overwritten shortly
 
@@ -441,7 +438,7 @@ namespace Doccer_Bot.Services
             
             var tasks = Task.Run(() => Parallel.ForEach(itemsList, parallelOptions, item =>
             {
-                var analysisResponse = CreateMarketAnalysis(item.Name, item.ItemID, server).Result;
+                var analysisResponse = CreateMarketAnalysis(item.Name, item.ItemID, datacenter, server).Result;
                 // index 2 is the 'overall' analysis that includes both NQ and HQ items
                 var analysis = analysisResponse[2];
 
@@ -454,6 +451,141 @@ namespace Doccer_Bot.Services
             await Task.WhenAll(tasks);
 
             return itemsList;
+        }
+
+
+        public async Task<List<MarketItemXWOrderModel>> GetMarketCrossworldPurchaseOrder(List<MarketItemXWOrderModel> inputs, Datacenter datacenter)
+        {
+            List<MarketItemXWOrderModel> PurchaseOrderList = new List<MarketItemXWOrderModel>();
+
+            // iterate through each item
+            var tasks = Task.Run(() => Parallel.ForEach(inputs, parallelOptions, input =>
+            {
+                var response = SearchForItemByNameExact(input.Name).Result;
+
+                // getting first response for now, but we should find a way to make this more flexible later
+                var itemName = response[0].Name;
+                var itemId = response[0].ID;
+                // paramer values only for use in this function
+                var neededQuantity = input.NeededQuantity;
+                var shouldBeHq = input.ShouldBeHQ;
+                // for large requests, take a RAM hit to grab more listings
+                var numOfListingsToTake = 15;
+                if (neededQuantity > 99)
+                    numOfListingsToTake = 19;
+
+                var listings = GetMarketListings(itemName, itemId, datacenter).Result;
+
+                // if we need this item to be hq, we should filter out NQ listings now
+                if (shouldBeHq)
+                    listings = listings.Where(x => x.IsHq).ToList();
+
+                // put together a list of each market listing
+                var multiPartOrderList = new List<MarketItemXWOrderModel>();
+                // only look at listings that are less than double the price of the lowest cost item
+                // we'd need to change this to look at averages since the lowest price could be a major outlier
+
+                foreach (var listing in listings.Take(numOfListingsToTake))
+                {
+                    // make a new item each iteration
+                    var item = new MarketItemXWOrderModel()
+                    {
+                        Name = itemName,
+                        ItemID = itemId,
+                        NeededQuantity = neededQuantity,
+                        Price = listing.CurrentPrice,
+                        Server = listing.Server,
+                        Quantity = listing.Quantity,
+                        IsHQ = listing.IsHq
+                    };
+
+                    multiPartOrderList.Add(item);
+                }
+
+                // send our listings off to find what the most efficient set of listings to buy are
+                var efficientListings = GetMostEfficientPurchases(multiPartOrderList, input.NeededQuantity);
+
+
+                if (efficientListings.Any())
+                    PurchaseOrderList.AddRange(efficientListings.FirstOrDefault());
+
+                multiPartOrderList.Clear();
+            }));
+
+            await Task.WhenAll(tasks);
+
+            PurchaseOrderList = PurchaseOrderList.OrderBy(x => x.Server).ToList();
+
+            return PurchaseOrderList;
+        }
+
+
+        // get the status of the Companion API
+        public async Task<MarketAPIRequestFailureStatus> GetCompanionApiStatus(string server = null)
+        {
+            if (server == null)
+                server = "gilgamesh";
+
+            // run test query
+            var apiResponse = await QueryCustomApiForHistory(5, server);
+
+            // if apiresponse does not return a status type, then it should be running fine
+            if (apiResponse.GetType() != typeof(MarketAPIRequestFailureStatus))
+                return MarketAPIRequestFailureStatus.OK;
+
+            // if it does return a status type, pass that back to calling function
+            return apiResponse;
+        }
+
+        public bool IsAPIUsable(dynamic apiResponse)
+        {
+            if (apiResponse.GetType() == typeof(MarketAPIRequestFailureStatus))
+            {
+                if (apiResponse == MarketAPIRequestFailureStatus.NotLoggedIn)
+                    return false;
+                if (apiResponse == MarketAPIRequestFailureStatus.UnderMaintenance)
+                    return false;
+                if (apiResponse == MarketAPIRequestFailureStatus.AccessDenied)
+                    return false;
+                if (apiResponse == MarketAPIRequestFailureStatus.ServiceUnavailable)
+                    return false;
+                if (apiResponse == MarketAPIRequestFailureStatus.NoResults)
+                    return false;
+                if (apiResponse == MarketAPIRequestFailureStatus.APIFailure)
+                    return false;
+            }
+
+            return true;
+        }
+
+
+        // get item data from XIVAPI using item ID - generally used to get an item's name
+        public async Task<dynamic> QueryXivapiWithItemId(int itemId)
+        {
+            var i = 0;
+            while (i < exceptionRetryCount)
+            {
+                try
+                {
+                    dynamic apiResponse = await $"https://xivapi.com/item/{itemId}".GetJsonAsync();
+
+                    return apiResponse;
+                }
+                catch (FlurlHttpException exception)
+                {
+                    // check if no results - flurl sees XIVAPI respond with a 'code 404' if it can't find an item
+                    // so it'll throw an exception - we can't check the response body for its contents like we can the custom API
+                    if (exception.Call.HttpStatus == HttpStatusCode.NotFound)
+                        return MarketAPIRequestFailureStatus.NoResults;
+
+                    await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"{exception.Message}"));
+                    await Task.Delay(exceptionRetryDelay);
+                }
+                i++;
+            }
+
+            // return generic api failure code
+            return MarketAPIRequestFailureStatus.APIFailure;
         }
 
 
@@ -543,6 +675,9 @@ namespace Doccer_Bot.Services
                                 return MarketAPIRequestFailureStatus.ServiceUnavailable;
                         }
 
+                        if (((IDictionary<String, object>)apiResponse).ContainsKey("Prices") == false)
+                            return MarketAPIRequestFailureStatus.APIFailure;
+
                         if (apiResponse.Prices == null || apiResponse.Prices.Count == 0)
                             return MarketAPIRequestFailureStatus.NoResults;
 
@@ -581,8 +716,6 @@ namespace Doccer_Bot.Services
                         // if the dict contains 'Error' key, it's a handled error
                         if (((IDictionary<String, object>)apiResponse).ContainsKey("Error"))
                         {
-                            wot = JsonConvert.SerializeObject(apiResponse);
-
                             if (apiResponse.Error == null)
                                 return MarketAPIRequestFailureStatus.APIFailure;
                             if (apiResponse.Error == "Not logged in")
@@ -594,6 +727,9 @@ namespace Doccer_Bot.Services
                             if (apiResponse.Error == "Service unavailable")
                                 return MarketAPIRequestFailureStatus.ServiceUnavailable;
                         }
+
+                        if (((IDictionary<String, object>)apiResponse).ContainsKey("history") == false)
+                            return MarketAPIRequestFailureStatus.APIFailure;
 
                         if (apiResponse.history == null || apiResponse.history.Count == 0)
                             return MarketAPIRequestFailureStatus.NoResults;
@@ -625,6 +761,35 @@ namespace Doccer_Bot.Services
                 try
                 {
                     dynamic apiResponse = await $"https://xivapi.com/search?string={itemName}&indexes=Item&filters=IsUntradable=0&private_key={_xivapiKey}".GetJsonAsync();
+
+                    if (apiResponse.Results.Count == 0)
+                        return MarketAPIRequestFailureStatus.NoResults;
+
+                    return apiResponse;
+                }
+                catch (FlurlHttpException exception)
+                {
+                    await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"{exception.Message}"));
+                    await Task.Delay(exceptionRetryDelay);
+                }
+                i++;
+            }
+
+            // return generic api failure code
+            return MarketAPIRequestFailureStatus.APIFailure;
+        }
+
+        // search XIVAPI using item name - generally used to get an item's ID
+        private async Task<dynamic> QueryXivapiWithStringExact(string itemName)
+        {
+            // number of retries
+            var i = 0;
+
+            while (i < exceptionRetryCount)
+            {
+                try
+                {
+                    dynamic apiResponse = await $"https://xivapi.com/search?string={itemName}&indexes=Item&string_algo=match&filters=IsUntradable=0&private_key={_xivapiKey}".GetJsonAsync();
 
                     if (apiResponse.Results.Count == 0)
                         return MarketAPIRequestFailureStatus.NoResults;
@@ -682,6 +847,34 @@ namespace Doccer_Bot.Services
             if (sales == 0 || listings.Count == 0)
                 return 0;
             return sales;
+        }
+
+        // this is used to determine the most efficient order of buying items cross-world
+        // results are pre-sorted by:
+        // 1. how close to the needed value that group of listings is (greater than or equal to)
+
+        // this function returns the 20 values of best 'fit' for these requirements given the parameters
+        private static List<IEnumerable<MarketItemXWOrderModel>> GetMostEfficientPurchases(List<MarketItemXWOrderModel> listings, int needed)
+        {
+            var target = Enumerable.Range(1, listings.Count)
+                .SelectMany(p => listings.Combinations(p))
+                .OrderBy(p => Math.Abs((int)p.Select(x => x.Quantity).Sum() - needed)) // sort by number of listings - fewest orders possible
+                .ThenBy(x => x.Sum(y => y.Price * y.Quantity)) // sort by total price of listing - typically leans towards more orders but cheaper overall
+                .Where(x => x.Sum(y => y.Quantity) >= needed) // where the total quantity is what we need, or more
+                .Take(20);
+
+            return target.ToList();
+        }
+    }
+
+    // for use with the GetMostEfficientPurchases command
+    public static class EnumerableExtensions
+    {
+        public static IEnumerable<IEnumerable<T>> Combinations<T>(this IEnumerable<T> elements, int k)
+        {
+            return k == 0 ? new[] { new T[0] } :
+                elements.SelectMany((e, i) =>
+                    elements.Skip(i + 1).Combinations(k - 1).Select(c => (new[] { e }).Concat(c)));
         }
     }
 }

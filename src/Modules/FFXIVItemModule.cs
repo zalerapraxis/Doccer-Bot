@@ -32,6 +32,12 @@ namespace Doccer_Bot.Modules
             // response is either a ordereddictionary of keyvaluepairs, or null
             var itemSearchResults = await MarketService.SearchForItemByName(searchTerm);
 
+            if (itemSearchResults == null)
+            {
+                await ReplyAsync("Something is wrong with XIVAPI. Try using Garlandtools to get the item's ID and use that instead.");
+                return;
+            }
+
             // no results
             if (itemSearchResults.Count == 0)
             {

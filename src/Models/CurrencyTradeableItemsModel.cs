@@ -231,18 +231,6 @@ namespace Doccer_Bot.Models
                 CurrencyCost = 2,
                 VendorLocation = "Tempest (Ondo Cups)"
             },
-            new CurrencyTradeableItem()
-            {
-                Name = "Micro Gigantender (Minion)",
-                ItemID = 26792,
-                CurrencyCost = 400
-            },
-            new CurrencyTradeableItem()
-            {
-                Name = "Butterfly Effect (Minion)",
-                ItemID = 26804,
-                CurrencyCost = 400
-            },
         };
 
         public static List<CurrencyTradeableItem> NutsItemsList = new List<CurrencyTradeableItem>()

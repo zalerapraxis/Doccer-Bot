@@ -47,7 +47,7 @@ namespace Example.Modules
                 if (example != null && example.ExampleText != "")
                     descriptionBuilder.Append($" - Example: *{example.ExampleText}*");
 
-                if (result.IsSuccess)
+                if (result.IsSuccess && example != null)
                 {
                     builder.AddField(x =>
                     {
