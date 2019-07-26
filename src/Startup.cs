@@ -72,6 +72,8 @@ namespace Example
             .AddSingleton<ScheduleService>()
             .AddSingleton<TextMemeService>()
             .AddSingleton<MarketService>()
+            .AddSingleton<EventMessageReceivedService>()
+            .AddSingleton<EventReactionAddedService>()
             .AddSingleton<Random>()                 // Add random to the collection
             .AddSingleton(Configuration);           // Add the configuration to the collection
         }

@@ -1,8 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Discord;
+using Discord.Commands;
+using Discord.WebSocket;
 using Example;
 
 namespace Doccer_Bot.Services
@@ -10,10 +13,16 @@ namespace Doccer_Bot.Services
     public class TextMemeService
     {
         private readonly DatabaseService _databaseService;
+        private readonly DiscordSocketClient _discord;
 
-        public TextMemeService(DatabaseService databaseService)
+
+        public TextMemeService(DatabaseService databaseService, DiscordSocketClient discord)
         {
             _databaseService = databaseService;
+            _discord = discord;
+
+            // uncomment this to subscribe to the messagereceived event
+            //_discord.MessageReceived += HandleNonCommandChatTriggers;
         }
 
         public string GetMemeTextForNoEvents()
@@ -29,7 +38,5 @@ namespace Doccer_Bot.Services
 
             return meme.Text;
         }
-
-
     }
 }

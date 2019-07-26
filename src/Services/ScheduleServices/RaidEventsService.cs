@@ -12,6 +12,9 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Doccer_Bot.Services
 {
+    //
+    // This service contains the timer that periodically calls various scheduling functions in GoogleCalendarSyncService & ScheduleService
+    //
     public class RaidEventsService
     {
         private readonly DiscordSocketClient _discord;
@@ -24,7 +27,6 @@ namespace Doccer_Bot.Services
         private Timer _scheduleTimer; // so garbage collection doesn't eat our timer after a bit
         public TimeSpan _timerInterval = TimeSpan.FromMinutes(5); // how often the timer will run, in minutes
 
-        // DiscordSocketClient, CommandService, and IConfigurationRoot are injected automatically from the IServiceProvider
         public RaidEventsService(
             DiscordSocketClient discord,
             GoogleCalendarSyncService googleCalendarSyncService,
@@ -110,7 +112,8 @@ namespace Doccer_Bot.Services
                     // try to sync from calendar
                     _googleCalendarSyncService.SyncFromGoogleCalendar(server);
 
-                    await _scheduleService.HandleReminders(server);
+                    if (server.RemindersEnabled)
+                        await _scheduleService.HandleReminders(server);
 
                     // modify events embed in reminders to reflect newly synced values
                     // don't care if syncfromgooglecalendar succeeded or not, because we have placeholder
@@ -121,7 +124,9 @@ namespace Doccer_Bot.Services
                 {
                     if (syncStatus == CalendarSyncStatus.ServerUnavailable)
                     {
-                        await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"Could not tell if we're connected to {server.ServerName} - skipping for now."));
+                        // if the bot detects that a connection error has caused objects to become outdated, we should update them here
+                        await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"DEBUG: Server {server.ServerName} was detected as disconnected, and we are reassigning its object now."));
+                        SetServerDiscordObjects(server);
                     }
                 }
             }
@@ -155,6 +160,7 @@ namespace Doccer_Bot.Services
                 }
             }
         }
+
 
         // converts stored IDs from database into ulongs (mongo can't store ulong ha ha) and use them to
         // assign our discord objects

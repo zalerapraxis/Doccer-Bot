@@ -27,6 +27,9 @@ using Microsoft.Extensions.Primitives;
 
 namespace Doccer_Bot.Services
 {
+    //
+    // This service handles communicating with Google Calendar API, getting events, and building lists from them
+    //
     public class GoogleCalendarSyncService
     {
         private readonly IConfiguration _config;
@@ -42,7 +45,6 @@ namespace Doccer_Bot.Services
         private string _redirectUri = "http://localhost";
         private string _userId = "user"; // dummy username for google stuff
 
-        // DiscordSocketClient, CommandService, and IConfigurationRoot are injected automatically from the IServiceProvider
         public GoogleCalendarSyncService(            
             IConfigurationRoot config,
             InteractiveService interactiveService,
@@ -162,32 +164,49 @@ namespace Doccer_Bot.Services
             // if there are events, iterate through and add them to our calendarevents list
             if (events.Any())
             {
-
+                // build a list of the events we pulled from gcal
                 foreach (var eventItem in events)
                 {
                     // api wrapper will always pull times in local time aka eastern because it sucks
                     // so just subtract 3 hours to get pacific time
-                    eventItem.Start.DateTime = eventItem.Start.DateTime - TimeSpan.FromHours(3);
-                    eventItem.End.DateTime = eventItem.End.DateTime - TimeSpan.FromHours(3);
+                    eventItem.Start.DateTime = eventItem.Start.DateTime - TimeSpan.FromHours(7);
+                    eventItem.End.DateTime = eventItem.End.DateTime - TimeSpan.FromHours(7);
 
                     // don't add items from the past
                     if (eventItem.End.DateTime < TimezoneAdjustedDateTime.Now.Invoke())
                         continue;
 
+                    var wot = eventItem.Start.Date;
+                    var test = DateTime.Parse(wot);
+
+                    DateTime startDate;
+                    DateTime endDate;
+
+                    if (eventItem.Start.DateTime.HasValue == false || eventItem.End.DateTime.HasValue == false)
+                    {
+                        startDate = DateTime.Parse(eventItem.Start.Date);
+                        endDate = DateTime.Parse(eventItem.End.Date);
+                    }
+                    else
+                    {
+                        startDate = eventItem.Start.DateTime.Value;
+                        endDate = eventItem.End.DateTime.Value;
+                    }
+
                     // build calendar event to be added to our list
                     var calendarEvent = new CalendarEvent()
                     {
                         Name = eventItem.Summary,
-                        StartDate = eventItem.Start.DateTime.Value,
-                        EndDate = eventItem.End.DateTime.Value,
-                        Timezone = "PST"
+                        StartDate = startDate,
+                        EndDate = endDate,
+                        Timezone = "PST",
+                        UniqueId = eventItem.Id
                     };
 
                     newEventsList.Add(calendarEvent);
                 }
 
-                // overall purpose of this is to keep the alert flags between resyncs
-
+                // build our working list of calendarevents, mixing old event items (if any) and new ones
                 if (oldEventsList.Count == 0)
                 {
                     // if calendarevents list (and thus oldeventslist) is empty, we're running for the first time
@@ -196,22 +215,36 @@ namespace Doccer_Bot.Services
                 }
                 else
                 {
-                    // match events we just pulled from google to events we have stored already, by name
+                    // match events we just pulled from google to events we have stored already, by start date
                     // store new name (this doesn't matter), start and endgames from new list into CalendarEvents
                     // keep existing alert flags
-                    var oldEventsDict = oldEventsList.ToDictionary(n => n.StartDate);
+                    var oldEventsDict = oldEventsList.ToDictionary(n => n.UniqueId);
                     foreach (var n in newEventsList)
                     {
                         CalendarEvent o;
-                        if (oldEventsDict.TryGetValue(n.StartDate, out o))
-                            server.Events.Add(new CalendarEvent
+                        if (oldEventsDict.TryGetValue(n.UniqueId, out o))
+                        {
+                            var calendarEvent = new CalendarEvent();
+                            calendarEvent.Name = n.Name;
+                            calendarEvent.Timezone = o.Timezone;
+                            calendarEvent.AlertMessage = o.AlertMessage;
+                            calendarEvent.UniqueId = o.UniqueId;
+
+                            // if this event's been manually adjusted, keep the old values
+                            if (o.ManuallyAdjusted)
                             {
-                                Name = n.Name,
-                                StartDate = n.StartDate,
-                                EndDate = n.EndDate,
-                                Timezone = o.Timezone,
-                                AlertMessage = o.AlertMessage
-                            });
+                                calendarEvent.StartDate = o.StartDate;
+                                calendarEvent.EndDate = o.EndDate;
+                            }
+                            else // else accept the new values
+                            {
+                                calendarEvent.StartDate = n.StartDate;
+                                calendarEvent.EndDate = n.EndDate;
+                            }
+
+                            server.Events.Add(calendarEvent);
+                        }
+                            
                         else
                             server.Events.Add(n);
                     }
@@ -219,6 +252,42 @@ namespace Doccer_Bot.Services
                 return true; // calendar had events, and we added them
             }
             return false; // calendar did not have events
+        }
+
+        public bool? AdjustUpcomingEvent(string function, int value, SocketCommandContext context)
+        {
+            var server = Servers.ServerList.Find(x => x.DiscordServer == context.Guild);
+
+            // if no events, return null
+            if (!server.Events.Any())
+                return null;
+
+            if (function == "clear")
+            {
+                server.Events[0].ManuallyAdjusted = false;
+                return true;
+            }
+
+            if (function == "start")
+            {
+                // if adjusted start date would be later than the end date, return false
+                if (server.Events[0].StartDate.AddMinutes(value) >= server.Events[0].EndDate)
+                    return false;
+
+                server.Events[0].StartDate = server.Events[0].StartDate.AddMinutes(value);
+            }
+
+            if (function == "end")
+            {
+                // if adjusted end date would be sooner than the start date, return false
+                if (server.Events[0].EndDate.AddMinutes(value) <= server.Events[0].StartDate)
+                    return false;
+
+                server.Events[0].EndDate = server.Events[0].EndDate.AddMinutes(value);
+            }
+
+            server.Events[0].ManuallyAdjusted = true;
+            return true;
         }
 
         // check if we're authorized and if we have a calendar id, and prompt the user to set up either if needed
@@ -240,8 +309,12 @@ namespace Doccer_Bot.Services
                 ((SocketGuild) server.DiscordServer).IsConnected == false)
             {
                 // DEBUG
-                _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"DEBUG - Name: {server.DiscordServer.Name} - Available: {server.DiscordServer.Available} " +
-                                                                             $"Connected: {((SocketGuild) server.DiscordServer).IsConnected}"));
+                Task.Run((async () =>
+                {
+                    await _logger.Log(new LogMessage(LogSeverity.Verbose, GetType().Name,
+                        $"DEBUG - Name: {server.DiscordServer.Name} - Available: {server.DiscordServer.Available} " +
+                        $"Connected: {((SocketGuild) server.DiscordServer).IsConnected} - WE SHOULD NOT SEE THIS. THIS SHOULD BE HANDLED AT THE START OF A TIMER TICK."));
+                }));
                 return CalendarSyncStatus.ServerUnavailable;
             }
                 
@@ -372,8 +445,8 @@ namespace Doccer_Bot.Services
 
     public static class TimezoneAdjustedDateTime
     {
-        // the bot runs in eastern time and we want pacific time, and we want to have easy access
-        // to the current time (in pacific) - so return the current time minus three hours
-        public static Func<DateTime> Now = () => DateTime.Now - TimeSpan.FromHours(3);
+        // the bot runs in utc and we want pacific time, and we want to have easy access
+        // to the current time (in pacific) - so return the current time minus seven hours
+        public static Func<DateTime> Now = () => DateTime.Now - TimeSpan.FromHours(7);
     }
 }

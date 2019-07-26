@@ -55,7 +55,7 @@ namespace Doccer_Bot.Services.DatabaseServiceComponents
             return true;
         }
 
-        public async Task<bool> EditServerInfo(string serverId, string key, string value)
+        public async Task<bool> EditServerInfo(string serverId, string key, dynamic value)
         {
             var database = _mongodb.GetDatabase(_mongodbName);
             var serverCollection = database.GetCollection<Server>("servers");

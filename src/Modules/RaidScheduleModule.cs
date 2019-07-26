@@ -13,6 +13,7 @@ using Doccer_Bot.Services.DatabaseServiceComponents;
 namespace Doccer_Bot.Modules
 {
     [Name("RaidSchedule")]
+    [Remarks("Configure & control raid scheduling")]
     public class RaidScheduleModule : InteractiveBase
     {
         // Dependency Injection will fill this value in for us 
@@ -20,6 +21,44 @@ namespace Doccer_Bot.Modules
         public ScheduleService ScheduleService { get; set; }
         public RaidEventsService RaidEventsService { get; set; }
         public DatabaseServers DatabaseServers { get; set; }
+
+
+        [Command("adjust")]
+        [Summary("Manually adjusts start/end times for the next upcoming event")]
+        [Example("adjust {start/end} {value}")]
+        [RequireUserPermission(GuildPermission.Administrator)]
+        public async Task AdjustEventAsync(string function, int value = 0)
+        {
+            if (function != "start" && function != "end" && function != "clear" || function != "clear" && value == 0)
+            {
+                await ReplyAsync("You didn't correctly fill out the command. Syntax is `adjust start/end amount (in minutes)`");
+                return;
+            }
+
+            var result = GoogleCalendarSyncService.AdjustUpcomingEvent(function, value, Context);
+
+            if (result == true)
+            {
+                var server = Servers.ServerList.Find(x => x.DiscordServer == Context.Guild);
+
+                StringBuilder responseBuilder = new StringBuilder();
+                responseBuilder.Append($"Event {server.Events[0].Name} adjusted - ");
+
+                if (function == "start")
+                    responseBuilder.Append($" new start time: {server.Events[0].StartDate}");
+                if (function == "end")
+                    responseBuilder.Append($" new end time: {server.Events[0].EndDate}");
+                if (function == "clear")
+                    responseBuilder.Append("adjustment cleared. Use `sync` command to reload original values.");
+
+                await ReplyAsync(responseBuilder.ToString());
+            }
+            if (result == false)
+                await ReplyAsync("Adjust failed - you probably tried to make the event start after it was set to end or something.");
+            if (result == null)
+                await ReplyAsync("Adjust failed - this server doesn't have any events to adjust.");
+
+        }
 
 
         // resync raid schedule timer
@@ -108,7 +147,8 @@ namespace Doccer_Bot.Modules
                 ConfigChannelId = configChannelId.ToString(),
                 ReminderChannelId = reminderChannelId.ToString(),
                 ServerId = Context.Guild.Id.ToString(),
-                ServerName = Context.Guild.Name
+                ServerName = Context.Guild.Name,
+                RemindersEnabled = true
             };
 
             // add this server's data to the database
@@ -131,7 +171,7 @@ namespace Doccer_Bot.Modules
         public async Task AuthAsync()
         {
             await GoogleCalendarSyncService.GetAuthCode(Context);
-            var response = await NextMessageAsync(true, true, TimeSpan.FromSeconds(30));
+            var response = await NextMessageAsync(true, true, TimeSpan.FromSeconds(60));
             if (response != null)
                 await GoogleCalendarSyncService.GetTokenAndLogin(response.Content, Context);
             else
@@ -148,6 +188,24 @@ namespace Doccer_Bot.Modules
                 await ScheduleService.GetEvents(Context);
             else
                 await ReplyAsync("This server doesn't have the scheduling system set up, so there are no events to display.");
+        }
+
+        // enable or disable reminders on this server
+        [Command("reminders")]
+        [Summary("Toggle reminders for this server")]
+        [RequireUserPermission(GuildPermission.Administrator)]
+        public async Task ToggleRemindersAsync()
+        {
+            var server = Servers.ServerList.Find(x => x.DiscordServer == Context.Guild);
+
+            if (server.RemindersEnabled)
+                server.RemindersEnabled = false;
+            else if (server.RemindersEnabled == false)
+                server.RemindersEnabled = true;
+
+            await ReplyAsync($"Toggled reminders to: {server.RemindersEnabled}.");
+
+            await DatabaseServers.EditServerInfo(server.ServerId, "reminders_enabled", server.RemindersEnabled);
         }
     }
 }

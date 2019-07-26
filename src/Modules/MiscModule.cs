@@ -11,6 +11,7 @@ using Doccer_Bot.Services;
 namespace Doccer_Bot.Modules
 {
     [Name("Misc")]
+    [Remarks("Random stuff")]
     public class MiscModule : InteractiveBase
     {
         [Command("vote", RunMode = RunMode.Async)]

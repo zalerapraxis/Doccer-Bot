@@ -12,6 +12,7 @@ using Doccer_Bot.Services.DatabaseServiceComponents;
 namespace Doccer_Bot.Modules
 {
     [Name("Sudo")]
+    [Remarks("rm -rf /")]
     public class SudoModule : InteractiveBase
     {
         public DatabaseSudo DatabaseSudo { get; set; }
