@@ -35,7 +35,15 @@ namespace Doccer_Bot.Services
             "jenova",
             "midgardsormr",
             "sargatanas",
-            "siren"
+            "siren",
+            "leviathan", // first server on list is that datacenter's home server
+            "famfrit",
+            "hyperion",
+            "ultros",
+            "behemoth",
+            "excalibur",
+            "exodus",
+            "lamia"
         };
         public List<String> ServerList_Aether = new List<string>()
         {
@@ -54,10 +62,10 @@ namespace Doccer_Bot.Services
             "famfrit",
             "hyperion",
             "ultros",
-            //"behemoth",
-            //"excalibur",
-            //"exodus",
-            //"lamia"
+            "behemoth",
+            "excalibur",
+            "exodus",
+            "lamia"
         };
 
         // Set to 1 to (hopefully) force parallel.foreach loops to run one at a time (synchronously)
@@ -379,35 +387,6 @@ namespace Doccer_Bot.Services
         }
 
 
-        public async Task<List<MarketItemAnalysisModel>> GetBestDealsForSearchTerms(string searchTerms, int lowerIlevel, int upperIlevel, Datacenter datacenter, string server = null)
-        {
-            var apiResponse = await QueryXivapiWithStringAndILevels(searchTerms, lowerIlevel, upperIlevel);
-
-            // take the response data and add it to a list so we can go over it in parallel
-            var responseList = new List<MarketItemAnalysisModel>();
-            foreach (var item in apiResponse.Results)
-            {
-                responseList.Add(new MarketItemAnalysisModel()
-                {
-                    Name = item.Name,
-                    ID = (int)item.ID
-                });
-            }
-
-            List<MarketItemAnalysisModel> results = new List<MarketItemAnalysisModel>();
-
-            var tasks = Task.Run(() => Parallel.ForEach(responseList, parallelOptions, item =>
-            {
-                var analysis = CreateMarketAnalysis(item.Name, item.ID, datacenter, server).Result;
-                results.AddRange(analysis);
-            }));
-
-            await Task.WhenAll(tasks);
-
-            return results.Where(x => x.Differential > 150).ToList();
-        }
-
-
         public async Task<List<CurrencyTradeableItem>> GetBestCurrencyExchange(string category, Datacenter datacenter, string server = null)
         {
             List<CurrencyTradeableItem> itemsList = new List<CurrencyTradeableItem>(); // gets overwritten shortly
@@ -431,6 +410,9 @@ namespace Doccer_Bot.Services
                     break;
                 case "wcs":
                     itemsList = CurrencyTradeableItemsModel.WhiteCrafterScripsItemsList;
+                    break;
+                case "goetia":
+                    itemsList = CurrencyTradeableItemsModel.GoetiaItemsList;
                     break;
                 default:
                     return itemsList;
@@ -472,7 +454,9 @@ namespace Doccer_Bot.Services
                 // for large requests, take a RAM hit to grab more listings
                 var numOfListingsToTake = 15;
                 if (neededQuantity > 99)
-                    numOfListingsToTake = 19;
+                    numOfListingsToTake = 20;
+                if (neededQuantity > 200)
+                    numOfListingsToTake = 25;
 
                 var listings = GetMarketListings(itemName, itemId, datacenter).Result;
 
@@ -536,6 +520,23 @@ namespace Doccer_Bot.Services
             // if it does return a status type, pass that back to calling function
             return apiResponse;
         }
+
+
+        // log in to the companion api
+        public async Task<bool> LoginToCompanionAPI(string server)
+        {
+            //dynamic apiResponse = await "https://xivapi.com/market/categories".GetJsonListAsync();
+            var response =
+                await
+                    $"{_customMarketApiUrl}/market/scripts/logincmd.php?server={server}"
+                        .GetStringAsync();
+
+            if (response.Contains("1"))
+                return true;
+            else
+                return false;
+        }
+
 
         public bool IsAPIUsable(dynamic apiResponse)
         {
@@ -702,7 +703,6 @@ namespace Doccer_Bot.Services
         {
             // number of retries
             var i = 0;
-            string wot = "";
 
             while (i < exceptionRetryCount)
             {

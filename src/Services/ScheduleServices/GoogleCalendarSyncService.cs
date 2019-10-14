@@ -176,9 +176,6 @@ namespace Doccer_Bot.Services
                     if (eventItem.End.DateTime < TimezoneAdjustedDateTime.Now.Invoke())
                         continue;
 
-                    var wot = eventItem.Start.Date;
-                    var test = DateTime.Parse(wot);
-
                     DateTime startDate;
                     DateTime endDate;
 
@@ -447,6 +444,8 @@ namespace Doccer_Bot.Services
     {
         // the bot runs in utc and we want pacific time, and we want to have easy access
         // to the current time (in pacific) - so return the current time minus seven hours
+
+        //public static Func<DateTime> Now = () => DateTime.Now - TimeSpan.FromHours(3);
         public static Func<DateTime> Now = () => DateTime.Now - TimeSpan.FromHours(7);
     }
 }

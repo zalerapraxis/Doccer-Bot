@@ -26,6 +26,13 @@ namespace Example.Modules
         [Summary("Displays help for a specific module - help {modulename}")]
         public async Task HelpModuleAsync(string requestedModule)
         {
+            // idiot check
+            if (requestedModule == "{module}")
+            {
+                await ReplyAsync("Don't be a dingus, you dingus.");
+                return;
+            }
+            
             string prefix = _config["prefix"];
             var builder = new EmbedBuilder()
             {

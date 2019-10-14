@@ -430,6 +430,52 @@ namespace Doccer_Bot.Models
                 CurrencyCost = 250
             },
         };
+
+        public static List<CurrencyTradeableItem> GoetiaItemsList = new List<CurrencyTradeableItem>()
+        {
+            new CurrencyTradeableItem()
+            {
+                Name = "Chalicotherium Skin",
+                ItemID = 27737,
+                CurrencyCost = 20
+            },
+            new CurrencyTradeableItem()
+            {
+                Name = "Multifaceted Varnish",
+                ItemID = 27695,
+                CurrencyCost = 20
+            },
+            new CurrencyTradeableItem()
+            {
+                Name = "Multifaceted Abrasive",
+                ItemID = 27718,
+                CurrencyCost = 20
+            },
+            new CurrencyTradeableItem()
+            {
+                Name = "Multifaceted Resin",
+                ItemID = 27719,
+                CurrencyCost = 20
+            },
+            new CurrencyTradeableItem()
+            {
+                Name = "Multifaceted Alumen",
+                ItemID = 27744,
+                CurrencyCost = 20
+            },
+            new CurrencyTradeableItem()
+            {
+                Name = "Multifaceted Cotton Cloth",
+                ItemID = 27762,
+                CurrencyCost = 20
+            },
+            new CurrencyTradeableItem()
+            {
+                Name = "Multifaceted Alchemic",
+                ItemID = 27796,
+                CurrencyCost = 20
+            },
+        };
     }
 
     public class CurrencyTradeableItem

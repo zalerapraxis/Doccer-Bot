@@ -60,7 +60,7 @@ namespace Doccer_Bot.Services.DatabaseServiceComponents
         }
 
         // called via. tag all command - returns all tags in db
-        public async Task<List<string>> GetAllTagsFromDatabase(SocketCommandContext context)
+        public async Task<List<Tag>> GetAllTagsFromDatabase(SocketCommandContext context)
         {
             var database = _mongodb.GetDatabase(_mongodbName);
             var tagCollection = database.GetCollection<Tag>("tags");
@@ -72,19 +72,7 @@ namespace Doccer_Bot.Services.DatabaseServiceComponents
             // use whichever filter to collect results from database as list of tags
             var dbResponse = await tagCollection.FindAsync(filter).Result.ToListAsync();
 
-            // grab all of the tags and add them to a results list containing only tag names
-            var results = new List<string>();
-            foreach (var tag in dbResponse)
-            {
-                StringBuilder stringBuilder = new StringBuilder();
-
-                stringBuilder.Append($"**{tag.Name}**");
-                if (tag.Description.Length > 0)
-                    stringBuilder.Append($" - {tag.Description}");
-                results.Add(stringBuilder.ToString());
-            }
-
-            return results;
+            return dbResponse;
         }
 
         // called via. tag all (search) command - search is an optional parameter used to search db for tags

@@ -5,6 +5,7 @@ using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Discord;
 using Discord.Addons.Interactive;
@@ -41,26 +42,29 @@ namespace Doccer_Bot.Modules
             await Context.Channel.TriggerTypingAsync();
 
             // try to get server name from the given text
-            var server = MarketService.ServerList.Where(inputs.Contains).FirstOrDefault();
+            var pattern = new Regex(@"\W");
+            var server = pattern.Split(inputs).FirstOrDefault(x => MarketService.ServerList.Contains(x));
+
             // if server's not null, user provided a specific server
             // remove server name from the text
             if (server != null)
-                inputs = inputs.Replace($"{server}", "").Trim();
+                inputs = ReplaceWholeWord(inputs, $"{server}", "").Trim();
 
             // set datacenter - if server param was passed and that server's in primal, we can use that, too
             var datacenter = Datacenter.Aether;
             // aether is default, but aether dc could be passed by user or by user-interact function, so handle it just in case
-            if (inputs.Contains("aether") || server != null && MarketService.ServerList_Aether.Contains(server))
+            // using regex to match whole words, so we don't trigger this check with things like 'aethersand'
+            if (Regex.Match(inputs, @"\baether\b", RegexOptions.IgnoreCase).Success || server != null && MarketService.ServerList_Aether.Contains(server))
             {
                 datacenter = Datacenter.Aether;
                 if (inputs.Contains("aether"))
-                    inputs = inputs.Replace("aether", "").Trim();
+                    inputs = ReplaceWholeWord(inputs, "aether", "").Trim();
             }
-            if (inputs.Contains("primal") || server != null && MarketService.ServerList_Primal.Contains(server))
+            if (Regex.Match(inputs, @"\bprimal\b", RegexOptions.IgnoreCase).Success || server != null && MarketService.ServerList_Primal.Contains(server))
             {
                 datacenter = Datacenter.Primal;
                 if (inputs.Contains("primal")) // second check here since getting datacenter by world means inputs wouldn't contain a dc
-                    inputs = inputs.Replace("primal", "").Trim();
+                    inputs = ReplaceWholeWord(inputs, "primal", "");
             }
 
             // check if the API is operational, handle it if it's not
@@ -249,18 +253,29 @@ namespace Doccer_Bot.Modules
             await Context.Channel.TriggerTypingAsync();
 
             // try to get server name from the given text
-            var server = MarketService.ServerList.Where(inputs.Contains).FirstOrDefault();
-            // if server's not null, remove server name from the text
+            var pattern = new Regex(@"\W");
+            var server = pattern.Split(inputs).FirstOrDefault(x => MarketService.ServerList.Contains(x));
+
+            // if server's not null, user provided a specific server
+            // remove server name from the text
             if (server != null)
-                inputs = inputs.Replace($"{server}", "").Trim();
+                inputs = ReplaceWholeWord(inputs, $"{server}", "").Trim();
 
             // set datacenter - if server param was passed and that server's in primal, we can use that, too
             var datacenter = Datacenter.Aether;
-            if (inputs.Contains("primal") || server != null && MarketService.ServerList_Primal.Contains(server))
+            // aether is default, but aether dc could be passed by user or by user-interact function, so handle it just in case
+            // using regex to match whole words, so we don't trigger this check with things like 'aethersand'
+            if (Regex.Match(inputs, @"\baether\b", RegexOptions.IgnoreCase).Success || server != null && MarketService.ServerList_Aether.Contains(server))
+            {
+                datacenter = Datacenter.Aether;
+                if (inputs.Contains("aether"))
+                    inputs = ReplaceWholeWord(inputs, "aether", "").Trim();
+            }
+            if (Regex.Match(inputs, @"\bprimal\b", RegexOptions.IgnoreCase).Success || server != null && MarketService.ServerList_Primal.Contains(server))
             {
                 datacenter = Datacenter.Primal;
                 if (inputs.Contains("primal")) // second check here since getting datacenter by world means inputs wouldn't contain a dc
-                    inputs = inputs.Replace("primal", "").Trim();
+                    inputs = ReplaceWholeWord(inputs, "primal", "");
             }
 
             // check if the API is operational, handle it if it's not
@@ -448,18 +463,31 @@ namespace Doccer_Bot.Modules
             await Context.Channel.TriggerTypingAsync();
 
             // try to get server name from the given text
-            var server = MarketService.ServerList.Where(inputs.Contains).FirstOrDefault();
-            // if server's not null, remove server name from the text
+            var pattern = new Regex(@"\W");
+            var server = pattern.Split(inputs).FirstOrDefault(x => MarketService.ServerList.Contains(x));
+
+            // if server's not null, user provided a specific server
+            // remove server name from the text
             if (server != null)
-                inputs = inputs.Replace($"{server}", "").Trim();
+                inputs = ReplaceWholeWord(inputs, $"{server}", "").Trim();
+
+            // FIX
 
             // set datacenter - if server param was passed and that server's in primal, we can use that, too
             var datacenter = Datacenter.Aether;
-            if (inputs.Contains("primal") || server != null && MarketService.ServerList_Primal.Contains(server))
+            // aether is default, but aether dc could be passed by user or by user-interact function, so handle it just in case
+            // using regex to match whole words, so we don't trigger this check with things like 'aethersand'
+            if (Regex.Match(inputs, @"\baether\b", RegexOptions.IgnoreCase).Success || server != null && MarketService.ServerList_Aether.Contains(server))
+            {
+                datacenter = Datacenter.Aether;
+                if (inputs.Contains("aether"))
+                    inputs = ReplaceWholeWord(inputs, "aether", "").Trim();
+            }
+            if (Regex.Match(inputs, @"\bprimal\b", RegexOptions.IgnoreCase).Success || server != null && MarketService.ServerList_Primal.Contains(server))
             {
                 datacenter = Datacenter.Primal;
                 if (inputs.Contains("primal")) // second check here since getting datacenter by world means inputs wouldn't contain a dc
-                    inputs = inputs.Replace("primal", "").Trim();
+                    inputs = ReplaceWholeWord(inputs, "primal", "");
             }
 
             // check if the API is operational, handle it if it's not
@@ -614,205 +642,6 @@ namespace Doccer_Bot.Modules
 
 
         // should be able to accept inputs in any order - if two values are provided, they will be treated as minilvl and maxilvl respectively
-        [Command("market deals", RunMode = RunMode.Async)]
-        [Alias("mbd")]
-        [Summary("Get market analyses for item categories")]
-        [Example("market deals {searchterms} (minilvl) (maxilvl) (server) - defaults to Gilgamesh")]
-        // function will attempt to parse server from searchTerm, no need to make a separate param
-        public async Task MarketGetDealsAsync(params string[] inputs)
-        {
-            int index = 0;
-
-            // set defaults
-            int defaultLowerIlevel = 0;
-            int defaultUpperIlevel = 1000;
-            string defaultServer = "gilgamesh";
-
-            // if no inputs, display categories
-            if (!inputs.Any())
-            {
-                // get categories, list them out
-                var categories = await MarketService.QueryXivapiForCategoryIds();
-
-                EmbedBuilder categoryIDsEmbedBuilder = new EmbedBuilder();
-                StringBuilder categoryIDsField1Builder = new StringBuilder();
-                StringBuilder categoryIDsField2Builder = new StringBuilder();
-
-                // sort categories into alternating columns for two embed fields
-                index = 0;
-                foreach (var category in categories)
-                {
-                    // odd
-                    if (index % 2 != 0)
-                        categoryIDsField1Builder.AppendLine($"{category.Name} - {category.ID}");
-                    // even
-                    if (index % 2 == 0)
-                        categoryIDsField2Builder.AppendLine($"{category.Name} - {category.ID}");
-                    index++;
-                }
-                
-                categoryIDsEmbedBuilder.AddField("Categories", categoryIDsField1Builder.ToString(), true);
-                categoryIDsEmbedBuilder.AddField("Categories", categoryIDsField2Builder.ToString(), true);
-                categoryIDsEmbedBuilder.Color = Color.Blue;
-
-                await ReplyAsync(null, false, categoryIDsEmbedBuilder.Build());
-                return;
-            }
-
-            // init working collections
-            string combinedStringInputs = "";
-            var integerInputsList = new List<int>();
-
-            // loop through inputs, determine if each is an integer or a string, and assign each 
-            foreach (var input in inputs)
-            {
-                int integerInput;
-                var inputWasInt = int.TryParse(input, out integerInput);
-
-                if (inputWasInt)
-                    integerInputsList.Add(integerInput);
-                else
-                {
-                    combinedStringInputs += $"{input} ";
-                }
-            }
-
-            // if list count is 0, we didn't get any ilv inputs, so set them
-            if (integerInputsList.Count == 0)
-            {
-                integerInputsList.Add(defaultLowerIlevel);
-                integerInputsList.Add(defaultUpperIlevel);
-            }
-            // if list count is 2, we only got lower ilvl, so add upper ilvl 
-            if (integerInputsList.Count == 1)
-            {
-                integerInputsList.Add(defaultUpperIlevel);
-            }
-
-            int lowerIlevel = integerInputsList[0];
-            int upperIlevel = integerInputsList[1];
-
-
-            string searchTerms = null;
-            string server = defaultServer;
-            
-            // get server from combined inputs if it exists
-            server = MarketService.ServerList.Where(combinedStringInputs.Contains).FirstOrDefault();
-            // remove server text from combined inputs if server text exists
-            if (server != null)
-                combinedStringInputs = combinedStringInputs.Replace($"{server}", "").Trim();
-
-            // set datacenter - if server param was passed and that server's in primal, we can use that, too
-            var datacenter = Datacenter.Aether;
-            if (combinedStringInputs.Contains("primal") || server != null && MarketService.ServerList_Primal.Contains(server))
-            {
-                datacenter = Datacenter.Primal;
-                if (inputs.Contains("primal")) // second check here since getting datacenter by world means inputs wouldn't contain a dc
-                    combinedStringInputs = combinedStringInputs.Replace("primal", "").Trim();
-            }
-
-            // assign remaining text to search terms - trim extra spaces just in case
-            searchTerms = combinedStringInputs.Trim();
-
-            // remove any trailing spaces
-            // .trim should take care of this instead?
-            //if (searchTerms.EndsWith(" "))
-                //searchTerms = searchTerms.Remove(searchTerms.Length - 1);
-
-            // QoL thing - if user inputs 0 for upper ilvl, treat it as if there is no upper bound
-            if (upperIlevel == 0)
-                upperIlevel = defaultUpperIlevel;
-
-            // get count of items & send list as embed
-            var apiResponse = await MarketService.QueryXivapiWithStringAndILevels(searchTerms, lowerIlevel, upperIlevel);
-            if (apiResponse.GetType() == typeof(MarketAPIRequestFailureStatus) && apiResponse == MarketAPIRequestFailureStatus.APIFailure)
-            {
-                await ReplyAsync("API failure");
-                return;
-            }
-
-            EmbedBuilder searchResultsEmbedBuilder = new EmbedBuilder();
-            StringBuilder itemField1Builder = new StringBuilder();
-            StringBuilder itemField2Builder = new StringBuilder();
-
-            index = 0;
-            foreach (var item in apiResponse.Results)
-            {
-                if (index % 2 == 0 && itemField1Builder.Length < 1000)
-                    itemField1Builder.AppendLine(item.Name);
-                if (index % 2 != 0 && itemField2Builder.Length < 1000)
-                    itemField2Builder.AppendLine(item.Name);
-
-                index++;
-            }
-
-            searchResultsEmbedBuilder.AddField("Names", itemField1Builder, true);
-            if (itemField2Builder.Length > 0) // only add second field if more than 1 item was found
-                searchResultsEmbedBuilder.AddField("Names", itemField2Builder, true);
-            searchResultsEmbedBuilder.Color = Color.Blue;
-
-
-            double estimatedTime = (apiResponse.Results.Count * 0.75) + 8; // 0.75 seconds per item approximately, with ~8s being initial processing time
-
-            var resultcount = $"{apiResponse.Results.Count}";
-            if (apiResponse.Results.Count == 100)
-                resultcount = "100+";
-
-            var waitMsg = await ReplyAsync($"We found {resultcount} items - processing them now. This should take about {estimatedTime} seconds.", false, searchResultsEmbedBuilder.Build());
-
-            // show user that the bot is processing
-            await Context.Channel.TriggerTypingAsync();
-
-            // get deals & send them as embed
-            var deals = await MarketService.GetBestDealsForSearchTerms(searchTerms, lowerIlevel, upperIlevel, datacenter, server);
-
-            // delete wait msg
-            await waitMsg.DeleteAsync();
-
-            if (deals.Count == 0)
-            {
-                await ReplyAsync("No deals were found under those conditions.");
-                return;
-            }
-
-            EmbedBuilder dealsEmbedBuilder = new EmbedBuilder();
-
-            foreach (var item in deals.Take(25))
-            {
-                StringBuilder dealFieldNameBuilder = new StringBuilder();
-                dealFieldNameBuilder.Append($"{item.Name}");
-                if (item.IsHQ)
-                    dealFieldNameBuilder.Append(" - HQ");
-                else
-                    dealFieldNameBuilder.Append(" - NQ");
-
-                StringBuilder dealFieldContentsBuilder = new StringBuilder();
-                dealFieldContentsBuilder.AppendLine($"Avg Listed Price: {item.AvgMarketPrice}");
-                dealFieldContentsBuilder.AppendLine($"Avg Sale Price: {item.AvgSalePrice}");
-                dealFieldContentsBuilder.AppendLine($"Differential: {item.Differential}%");
-                dealFieldContentsBuilder.AppendLine($"Number of sales: {item.NumRecentSales}");
-                if (item.NumRecentSales >= 20)
-                    dealFieldContentsBuilder.AppendLine("+");
-
-                dealsEmbedBuilder.AddField(dealFieldNameBuilder.ToString(), dealFieldContentsBuilder.ToString(), true);
-            }
-
-            StringBuilder embedNameBuilder = new StringBuilder();
-            embedNameBuilder.Append($"Potential deals");
-            if (server != null)
-                embedNameBuilder.Append($" on {server}");
-
-            dealsEmbedBuilder.Author = new EmbedAuthorBuilder()
-            {
-                Name = embedNameBuilder.ToString()
-            };
-            dealsEmbedBuilder.Color = Color.Blue;
-
-            await ReplyAsync(null, false, dealsEmbedBuilder.Build());
-        }
-
-
-        // should be able to accept inputs in any order - if two values are provided, they will be treated as minilvl and maxilvl respectively
         [Command("market exchange", RunMode = RunMode.Async)]
         [Alias("mbe")]
         [Summary("Get best items to spend your tomes/seals on")]
@@ -831,6 +660,7 @@ namespace Doccer_Bot.Modules
                 categoryListBuilder.AppendLine("nuts - sacks of nuts from hunts :peanut:");
                 categoryListBuilder.AppendLine("wgs - White Gatherer Scrip items");
                 categoryListBuilder.AppendLine("wcs - White Crafter Scrip items");
+                categoryListBuilder.AppendLine("goetia - goetia mats");
 
                 await ReplyAsync(categoryListBuilder.ToString());
                 return;
@@ -844,18 +674,29 @@ namespace Doccer_Bot.Modules
             await Context.Channel.TriggerTypingAsync();
 
             // try to get server name from the given text
-            var server = MarketService.ServerList.Where(inputs.Contains).FirstOrDefault();
-            // if server's not null, remove server name from the text
+            var pattern = new Regex(@"\W");
+            var server = pattern.Split(inputs).FirstOrDefault(x => MarketService.ServerList.Contains(x));
+
+            // if server's not null, user provided a specific server
+            // remove server name from the text
             if (server != null)
-                inputs = inputs.Replace($"{server}", "").Trim();
+                inputs = ReplaceWholeWord(inputs, $"{server}", "").Trim();
 
             // set datacenter - if server param was passed and that server's in primal, we can use that, too
             var datacenter = Datacenter.Aether;
-            if (inputs.Contains("primal") || server != null && MarketService.ServerList_Primal.Contains(server))
+            // aether is default, but aether dc could be passed by user or by user-interact function, so handle it just in case
+            // using regex to match whole words, so we don't trigger this check with things like 'aethersand'
+            if (Regex.Match(inputs, @"\baether\b", RegexOptions.IgnoreCase).Success || server != null && MarketService.ServerList_Aether.Contains(server))
+            {
+                datacenter = Datacenter.Aether;
+                if (inputs.Contains("aether"))
+                    inputs = ReplaceWholeWord(inputs, "aether", "").Trim();
+            }
+            if (Regex.Match(inputs, @"\bprimal\b", RegexOptions.IgnoreCase).Success || server != null && MarketService.ServerList_Primal.Contains(server))
             {
                 datacenter = Datacenter.Primal;
                 if (inputs.Contains("primal")) // second check here since getting datacenter by world means inputs wouldn't contain a dc
-                    inputs = inputs.Replace("primal", "").Trim();
+                    inputs = ReplaceWholeWord(inputs, "primal", "");
             }
 
             // check if the API is operational, handle it if it's not
@@ -941,6 +782,9 @@ namespace Doccer_Bot.Modules
                 case "wcs":
                     authorurl = "https://xivapi.com/i/065000/065070.png";
                     break;
+                case "goetia":
+                    authorurl = "https://xivapi.com/i/065000/065066.png";
+                    break;
             }
 
             dealsEmbedBuilder.Author = new EmbedAuthorBuilder()
@@ -970,12 +814,21 @@ namespace Doccer_Bot.Modules
             // it doesn't break our text matching in serverlist and with api request
             inputs = inputs.ToLower();
 
-            // set datacenter
+            // set datacenter - if server param was passed and that server's in primal, we can use that, too
             var datacenter = Datacenter.Aether;
-            if (inputs.Contains("primal"))
+            // aether is default, but aether dc could be passed by user or by user-interact function, so handle it just in case
+            // using regex to match whole words, so we don't trigger this check with things like 'aethersand'
+            if (Regex.Match(inputs, @"\baether\b", RegexOptions.IgnoreCase).Success)
+            {
+                datacenter = Datacenter.Aether;
+                if (inputs.Contains("aether"))
+                    inputs = ReplaceWholeWord(inputs, "aether", "").Trim();
+            }
+            if (Regex.Match(inputs, @"\bprimal\b", RegexOptions.IgnoreCase).Success)
             {
                 datacenter = Datacenter.Primal;
-                inputs = inputs.Replace("primal", "").Trim();
+                if (inputs.Contains("primal")) // second check here since getting datacenter by world means inputs wouldn't contain a dc
+                    inputs = ReplaceWholeWord(inputs, "primal", "");
             }
 
             // show that the bot's processing
@@ -1032,6 +885,7 @@ namespace Doccer_Bot.Modules
             foreach (var server in purchaseOrder)
             {
                 StringBuilder purchaseOrderServerStringBuilder = new StringBuilder();
+                StringBuilder purchaseOrderServerOverflowStringBuilder = new StringBuilder(); // in case the first field goes over 1024 chars
                 // convert this server IGrouping to a list so we can access its values easily
                 var serverList = server.ToList();
 
@@ -1039,18 +893,35 @@ namespace Doccer_Bot.Modules
                 foreach (var item in serverList)
                 {
                     var quality = item.IsHQ ? "(HQ)" : "";
-                    purchaseOrderServerStringBuilder.AppendLine(
-                        $"{item.Name} {quality} - {item.Quantity} for {item.Price} (total: {item.Quantity * item.Price})");
+                    var entry = $"{item.Name} {quality} - {item.Quantity} for {item.Price} (total: {item.Quantity * item.Price})";
 
+                    if (purchaseOrderServerStringBuilder.Length + entry.Length < 1024)
+                        purchaseOrderServerStringBuilder.AppendLine(entry);
+                    else
+                        purchaseOrderServerOverflowStringBuilder.AppendLine(entry);
+                    
                     totalCost += item.Price * item.Quantity;
                 }
 
                 var field = new EmbedFieldBuilder();
+                var fieldOverflow = new EmbedFieldBuilder(); // in case the first field goes over 1024 chars
+
+                // regular field
                 field.Name = $"{serverList[0].Server}";
                 field.Value = purchaseOrderServerStringBuilder.ToString();
-
-                purchaseOrderEmbed.Title = $"Total cost: {totalCost}";
                 purchaseOrderEmbed.AddField(field);
+
+                // overflow field, only if applicable
+                if (purchaseOrderServerOverflowStringBuilder.Length > 0)
+                {
+                    fieldOverflow.Name = $"{serverList[0].Server} (2)";
+                    fieldOverflow.Value = purchaseOrderServerOverflowStringBuilder.ToString();
+                    purchaseOrderEmbed.AddField(fieldOverflow);
+                }
+
+                // embed title
+                purchaseOrderEmbed.Title = $"Total cost: {totalCost}";
+
             }
 
             purchaseOrderEmbed.WithFooter($"Took {timer.ElapsedMilliseconds} ms");
@@ -1061,46 +932,80 @@ namespace Doccer_Bot.Modules
         }
 
 
-        [Command("market status", RunMode = RunMode.Async)]
-        [Alias("mbs")]
-        [Summary("")]
+        [Command("market login", RunMode = RunMode.Async)]
+        [Alias("mbl")]
+        [Summary("Check status of servers & attempt to log in to any that aren't logged in")]
         public async Task MarketServerStatusAsync()
         {
             // show that the bot's processing
             await Context.Channel.TriggerTypingAsync();
 
-            StringBuilder serverStatusStringBuilder = new StringBuilder();
-            serverStatusStringBuilder.AppendLine("**Server status**");
-
-            var allServersList = new List<String>();
+            var allServersList = new List<string>();
             allServersList.AddRange(MarketService.ServerList_Aether);
             allServersList.AddRange(MarketService.ServerList_Primal);
 
+            var serverStatusList = new List<CompanionAPILoginStatusModel>();
+
             var tasks = Task.Run(() => Parallel.ForEach(allServersList, server =>
             {
-                var serverStatusResult = MarketService.GetCompanionApiStatus(server).Result;
-                var serverStatus = "";
+                var serverStatus = new CompanionAPILoginStatusModel();
+                serverStatus.ServerName = server;
 
-                if (serverStatusResult == MarketAPIRequestFailureStatus.OK)
-                    serverStatus = "✅";
+                var serverStatusQueryResult = MarketService.GetCompanionApiStatus(server).Result;
+
+                if (serverStatusQueryResult == MarketAPIRequestFailureStatus.OK)
+                    serverStatus.LoginStatus = true;
                 else
-                    serverStatus = "❌";
+                    serverStatus.LoginStatus = false;
 
-                serverStatusStringBuilder.AppendLine($"{server}: {serverStatus}");
+                serverStatusList.Add(serverStatus);
             }));
 
             await Task.WhenAll(tasks);
 
-            await ReplyAsync(serverStatusStringBuilder.ToString());
+            var serverStatusFailedList = serverStatusList.Where(x => x.LoginStatus == false).ToList();
+
+            // function ends here if all servers are logged in
+            if (serverStatusFailedList.Any() == false)
+            {
+                await ReplyAsync("All servers are logged in.");
+                return;
+            }
+
+            // continue and handle if any servers failed
+
+            await ReplyAsync($"{serverStatusFailedList.Count} server(s) aren't logged in at the moment. I will try to log into them now.");
+            var statusMsg = await ReplyAsync("Status: Waiting...");
+
+
+            var currentCount = 0;
+            foreach (var server in serverStatusFailedList)
+            {
+                currentCount++;
+
+                await Context.Channel.TriggerTypingAsync();
+
+                await statusMsg.ModifyAsync(m => m.Content = $"Status: Logging into {server.ServerName} ({currentCount} / {serverStatusFailedList.Count})...");
+                var loggedIn = await MarketService.LoginToCompanionAPI(server.ServerName);
+
+                if (loggedIn)
+                    await statusMsg.ModifyAsync(m => m.Content = $"Successfully logged in to {server.ServerName} ({currentCount} / {serverStatusFailedList.Count}).");
+                else
+                    await statusMsg.ModifyAsync(m => m.Content = $"Could not log in to {server.ServerName} ({currentCount} / {serverStatusFailedList.Count}).");
+
+                await Task.Delay(1000);
+            }
+
+            await statusMsg.ModifyAsync(m => m.Content = $"Logins complete.");
         }
 
 
         // interactive user selection prompt - each item in the passed collection gets listed out with an emoji
-        // user selects an emoji, and the handlecallback function is run with the corresponding item ID as its parameter
-        // it's expected that this function will be the last call in a function before that terminates, and that the callback function
-        // will re-run the function with the user-selected data
-        // optional server parameter to preserve server filter option
-        private async Task InteractiveUserSelectItem(List<ItemSearchResultModel> itemsList, string functionToCall, Datacenter datacenter, string server = null)
+            // user selects an emoji, and the handlecallback function is run with the corresponding item ID as its parameter
+            // it's expected that this function will be the last call in a function before that terminates, and that the callback function
+            // will re-run the function with the user-selected data
+            // optional server parameter to preserve server filter option
+            private async Task InteractiveUserSelectItem(List<ItemSearchResultModel> itemsList, string functionToCall, Datacenter datacenter, string server = null)
         {
             string[] numbers = new[] { "0⃣", "1⃣", "2⃣", "3⃣", "4⃣", "5⃣", "6⃣", "7⃣", "8⃣", "9⃣", "🇦", "🇧", "🇨", "🇩", "🇪" };
             var numberEmojis = new List<Emoji>();
@@ -1178,9 +1083,17 @@ namespace Doccer_Bot.Modules
             if (status == MarketAPIRequestFailureStatus.AccessDenied)
                 apiStatusHumanResponse = $"Access denied. Contact {Context.Guild.GetUser(110866678161645568).Mention}.";
             if (status == MarketAPIRequestFailureStatus.ServiceUnavailable || status == MarketAPIRequestFailureStatus.APIFailure)
-                apiStatusHumanResponse = $"Something went wrong. Contact {Context.Guild.GetUser(110866678161645568).Mention}.";
+                apiStatusHumanResponse = $"Something went wrong (API failure). Contact {Context.Guild.GetUser(110866678161645568).Mention}.";
 
             return apiStatusHumanResponse;
+        }
+
+        private string ReplaceWholeWord(string original, string wordToFind, string replacement, RegexOptions regexOptions = RegexOptions.None)
+        {
+            string pattern = String.Format(@"\b{0}\b", wordToFind);
+            string replaced = Regex.Replace(original, pattern, replacement, regexOptions).Trim(); // remove the unwanted word
+            string ret = Regex.Replace(replaced, @"\s+", " "); // clear out any excess whitespace
+            return ret;
         }
     }
 }

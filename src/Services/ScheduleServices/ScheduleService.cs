@@ -43,16 +43,17 @@ namespace Doccer_Bot.Services
         // send or modify messages alerting the user that an event will be starting soon
         public async Task HandleReminders(Server server)
         {
+            var firstCalendarEvent = server.Events[0];
+
+            // look for any existing reminder messages in the reminders channel that contain the first event's name
+            // if one exists, set that message as the first event's alert message
+            // only set the first one so repeated event names don't all get assigned this message
+            var oldReminderMessage = await GetPreviousReminderMessage(server, firstCalendarEvent.Name);
+            if (oldReminderMessage != null && firstCalendarEvent.AlertMessage == null)
+                firstCalendarEvent.AlertMessage = oldReminderMessage;
+
             foreach (var calendarEvent in server.Events)
             {
-                // look for pre-existing reminder messages containing this event's title
-                // if we find one, and we don't already have a alertmessage stored,
-                // set it as this event's alert message and use that for modification.
-                // this should only come into play if the hour alert message has been sent and the bot is restarted after
-                var oldReminderMessage = await GetPreviousReminderMessage(server, calendarEvent.Name);
-                if (oldReminderMessage != null && calendarEvent.AlertMessage == null)
-                    calendarEvent.AlertMessage = oldReminderMessage;
-
                 // get amount of time between the calendarevent start time and the current time
                 // and round it to the nearest 5m interval, so usually on the 5m interval
                 var timeStartDelta = RoundToNearestMinutes(calendarEvent.StartDate - TimezoneAdjustedDateTime.Now.Invoke(), 5);
@@ -134,9 +135,10 @@ namespace Doccer_Bot.Services
                 // if the event is over an hour from now and an alert message exists, delete it.
                 if (calendarEvent.StartDate > TimezoneAdjustedDateTime.Now.Invoke() + TimeSpan.FromMinutes(60) && calendarEvent.AlertMessage != null)
                 {
-                    await calendarEvent.AlertMessage.DeleteAsync();
+                    // await calendarEvent.AlertMessage.DeleteAsync();
+
                     calendarEvent.AlertMessage = null;
-                    await _logger.Log(new LogMessage(LogSeverity.Verbose, GetType().Name, $"DEBUG - {server.ServerName} - The event start date is over an hour away, deleting alert message."));
+                    await _logger.Log(new LogMessage(LogSeverity.Verbose, GetType().Name, $"DEBUG - {server.ServerName} - The event start date is over an hour away, we would have deleted the alert message."));
                 }
 
                 if (calendarEvent.AlertMessage != null)

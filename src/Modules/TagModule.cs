@@ -316,31 +316,28 @@ namespace Doccer_Bot.Modules
         [Alias("tags")]
         public async Task TagGetAllCommandAsync(string extra = null)
         {
-            var results = await DatabaseTags.GetAllTagsFromDatabase(Context);
+            var tags = await DatabaseTags.GetAllTagsFromDatabase(Context);
 
-            if (results.Any())
+            if (tags.Any())
             {
                 EmbedBuilder embedBuilder = new EmbedBuilder();
-                StringBuilder tagsColumn1builder = new StringBuilder();
-                StringBuilder tagsColumn2builder = new StringBuilder();
+                StringBuilder tagsGlobalColumnbuilder = new StringBuilder();
 
-                var i = 0;
-                foreach (var result in results)
+                StringBuilder tagsLocalColumnbuilder = new StringBuilder();
+
+                var iGlobal = 0;
+                var iLocal = 0;
+                foreach (var tag in tags)
                 {
-                    // 0 for left column, 1 for right, 2 resets to 0
-                    // creates two strings containing alternating lists of meme names from memes list
-                    if (i == 2)
-                        i = 0;
-                    if (i == 0)
-                        tagsColumn1builder.AppendLine(result);
-                    if (i == 1)
-                        tagsColumn2builder.AppendLine(result);
+                    if (tag.Global)
+                        tagsGlobalColumnbuilder.AppendLine(tag.Name);
+                    if (tag.Global == false)
+                        tagsLocalColumnbuilder.AppendLine(tag.Name);
 
-                    i++;
                 }
 
-                embedBuilder.AddField("Tags", tagsColumn1builder.ToString(), true);
-                embedBuilder.AddField("\u200b", tagsColumn2builder.ToString(), true);
+                embedBuilder.AddField("Global tags", tagsGlobalColumnbuilder.ToString(), true);
+                embedBuilder.AddField("Local tags", tagsLocalColumnbuilder.ToString(), true);
 
                 await ReplyAsync(null, false, embedBuilder.Build());
             }
