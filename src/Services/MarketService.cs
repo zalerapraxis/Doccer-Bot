@@ -843,7 +843,7 @@ namespace Doccer_Bot.Services
         }
     }
 
-    // for use with the GetMostEfficientPurchases command
+    // for use with the GetMostEfficientPurchases command, to build order lists
     public static class EnumerableExtensions
     {
         public static IEnumerable<IEnumerable<T>> Combinations<T>(this IEnumerable<T> elements, int k)
