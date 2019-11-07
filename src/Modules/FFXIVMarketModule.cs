@@ -3,10 +3,13 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Xml;
+using System.Xml.Linq;
 using Discord;
 using Discord.Addons.Interactive;
 using Discord.Commands;
@@ -15,6 +18,10 @@ using Doccer_Bot.Models;
 using Doccer_Bot.Modules.Common;
 using Doccer_Bot.Services;
 using Flurl.Util;
+using OxyPlot;
+using OxyPlot.Axes;
+using OxyPlot.Series;
+using SkiaSharp;
 
 namespace Doccer_Bot.Modules
 {
@@ -373,7 +380,6 @@ namespace Doccer_Bot.Modules
 
 
             // format history data & display
-
             var pages = new List<PaginatedMessage.Page>();
 
             var i = 0;
@@ -446,7 +452,82 @@ namespace Doccer_Bot.Modules
                 Jump = true
             });
 
+            // model config
+            var plotModel = new PlotModel()
+            {
+                TextColor = OxyColor.Parse("#FFFFFF"),
+            };
 
+            // data config
+            var dataSeries = new LineSeries()
+            {
+                MarkerFill = OxyColor.Parse("#FFFFFF"),
+                MarkerType = MarkerType.Circle,
+                MarkerSize = 2,
+                Color = OxyColor.Parse("#7289DA"),
+            };
+
+            // axes config
+            var dateAxis = new DateTimeAxis()
+            {
+                Title = "Date",
+                Position = AxisPosition.Bottom,
+                AxislineColor = OxyColor.Parse("#FFFFFF"),
+                TicklineColor = OxyColor.Parse("#FFFFFF"),
+                StringFormat = "HH:mm",
+                AbsoluteMinimum = OxyPlot.Axes.Axis.ToDouble(DateTime.Now.Date.AddDays(-2)),
+            };
+            var priceAxis = new LinearAxis()
+            {
+                Title = "Price",
+                AxislineColor = OxyColor.Parse("#FFFFFF"),
+                TicklineColor = OxyColor.Parse("#FFFFFF"),
+                Position = AxisPosition.Left
+            };
+
+            // adding history data in
+            foreach (var historyPoint in historyQueryResults)
+                dataSeries.Points.Add(new DataPoint(DateTimeAxis.ToDouble(historyPoint.SaleDate), historyPoint.SoldPrice));
+
+            // put it all together
+            plotModel.Series.Add(dataSeries);
+            plotModel.Axes.Add(dateAxis);
+            plotModel.Axes.Add(priceAxis);
+
+            // save plot as svg
+            using (var stream = File.Create($"{itemName}.svg"))
+            {
+                var exporter = new SvgExporter { Width = 800, Height = 600 };
+                exporter.Export(plotModel, stream);
+            }
+
+            // load plot from file
+            var svg = new SKSvg();
+            svg.Load($"{itemName}.svg");
+
+            // convert
+            var bitmap = new SKBitmap((int)svg.CanvasSize.Width, (int)svg.CanvasSize.Height);
+            var canvas = new SKCanvas(bitmap);
+            canvas.DrawPicture(svg.Picture);
+            canvas.Flush();
+            canvas.Save();
+
+            // save
+            using (var image = SKImage.FromBitmap(bitmap))
+            using (var data = image.Encode())
+            {
+                // save the data to a stream
+                using (var file = File.OpenWrite($"{itemName}.png"))
+                {
+                    data.SaveTo(file);
+                }
+            }
+
+            await Context.Channel.SendFileAsync(Path.Combine(Environment.CurrentDirectory, $"{itemName}.png"));
+
+            // delete svg & png temp files
+            File.Delete($"{itemName}.svg");
+            File.Delete($"{itemName}.png");
         }
 
 
