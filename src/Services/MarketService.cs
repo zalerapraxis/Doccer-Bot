@@ -165,7 +165,7 @@ namespace Doccer_Bot.Services
             {
                 var apiResponse = QueryCustomApiForListings(itemId, server).Result;
 
-                // check if custom API handled error - modules check for this first so this shouldn't be necessary
+                // check if custom API handled error - above function checks for this first so this shouldn't be necessary
                 if (!IsAPIUsable(apiResponse))
                     return;
 
@@ -410,6 +410,12 @@ namespace Doccer_Bot.Services
                     break;
                 case "wcs":
                     itemsList = CurrencyTradeableItemsModel.WhiteCrafterScripsItemsList;
+                    break;
+                case "ygs":
+                    itemsList = CurrencyTradeableItemsModel.YellowGathererScripsItemsList;
+                    break;
+                case "ycs":
+                    itemsList = CurrencyTradeableItemsModel.YellowCrafterScripsItemsList;
                     break;
                 case "goetia":
                     itemsList = CurrencyTradeableItemsModel.GoetiaItemsList;
