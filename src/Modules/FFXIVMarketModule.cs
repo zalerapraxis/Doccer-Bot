@@ -601,9 +601,11 @@ namespace Doccer_Bot.Modules
                     hqFieldBuilder.AppendLine(" Yes");
                 else
                     hqFieldBuilder.AppendLine("No");
-                hqFieldBuilder.AppendLine($"Number of sales: {hqMarketAnalysis.NumRecentSales}");
+                hqFieldBuilder.Append($"Number of sales: {hqMarketAnalysis.NumRecentSales}");
                 if (hqMarketAnalysis.NumRecentSales >= 20)
                     hqFieldBuilder.AppendLine("+");
+                else
+                    hqFieldBuilder.AppendLine("");
 
                 analysisEmbedBuilder.AddField("HQ", hqFieldBuilder.ToString());
             }
@@ -660,6 +662,8 @@ namespace Doccer_Bot.Modules
                 categoryListBuilder.AppendLine("nuts - sacks of nuts from hunts :peanut:");
                 categoryListBuilder.AppendLine("wgs - White Gatherer Scrip items");
                 categoryListBuilder.AppendLine("wcs - White Crafter Scrip items");
+                categoryListBuilder.AppendLine("ygs - Yellow Gatherer Scrip items");
+                categoryListBuilder.AppendLine("ycs - Yellow Crafter Scrip items");
                 categoryListBuilder.AppendLine("goetia - goetia mats");
 
                 await ReplyAsync(categoryListBuilder.ToString());
@@ -781,6 +785,12 @@ namespace Doccer_Bot.Modules
                     break;
                 case "wcs":
                     authorurl = "https://xivapi.com/i/065000/065070.png";
+                    break;
+                case "ygs":
+                    authorurl = "https://xivapi.com/i/065000/065043.png";
+                    break;
+                case "ycs":
+                    authorurl = "https://xivapi.com/i/065000/065044.png";
                     break;
                 case "goetia":
                     authorurl = "https://xivapi.com/i/065000/065066.png";
