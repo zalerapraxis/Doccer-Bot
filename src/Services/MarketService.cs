@@ -165,10 +165,6 @@ namespace Doccer_Bot.Services
             {
                 var apiResponse = QueryCustomApiForListings(itemId, server).Result;
 
-                // check if custom API handled error - above function checks for this first so this shouldn't be necessary
-                if (!IsAPIUsable(apiResponse))
-                    return;
-
                 foreach (var listing in apiResponse.Prices)
                 {
                     // build a marketlisting with the info we get from method parameters and the api call
@@ -216,10 +212,6 @@ namespace Doccer_Bot.Services
             var tasks = Task.Run(() => Parallel.ForEach(tempServerList, parallelOptions, server =>
             {
                 var apiResponse = QueryCustomApiForHistory(itemId, server).Result;
-
-                // check if custom API handled error - modules check for this first so this shouldn't be necessary
-                if (!IsAPIUsable(apiResponse))
-                    return;
 
                 foreach (var listing in apiResponse.history)
                 {
@@ -541,28 +533,6 @@ namespace Doccer_Bot.Services
                 return true;
             else
                 return false;
-        }
-
-
-        public bool IsAPIUsable(dynamic apiResponse)
-        {
-            if (apiResponse.GetType() == typeof(MarketAPIRequestFailureStatus))
-            {
-                if (apiResponse == MarketAPIRequestFailureStatus.NotLoggedIn)
-                    return false;
-                if (apiResponse == MarketAPIRequestFailureStatus.UnderMaintenance)
-                    return false;
-                if (apiResponse == MarketAPIRequestFailureStatus.AccessDenied)
-                    return false;
-                if (apiResponse == MarketAPIRequestFailureStatus.ServiceUnavailable)
-                    return false;
-                if (apiResponse == MarketAPIRequestFailureStatus.NoResults)
-                    return false;
-                if (apiResponse == MarketAPIRequestFailureStatus.APIFailure)
-                    return false;
-            }
-
-            return true;
         }
 
 
