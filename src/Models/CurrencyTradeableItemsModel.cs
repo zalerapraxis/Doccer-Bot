@@ -347,6 +347,42 @@ namespace Doccer_Bot.Models
                 ItemID = 26737,
                 CurrencyCost = 500
             },
+            new CurrencyTradeableItem()
+            {
+                Name = "Sublime Solution",
+                ItemID = 28718,
+                CurrencyCost = 125
+            },
+            new CurrencyTradeableItem()
+            {
+                Name = "King Salmon",
+                ItemID = 27844,
+                CurrencyCost = 15
+            },
+            new CurrencyTradeableItem()
+            {
+                Name = "Robe Lettuce",
+                ItemID = 27845,
+                CurrencyCost = 15
+            },
+            new CurrencyTradeableItem()
+            {
+                Name = "Kriollo Kukuru Bean",
+                ItemID = 27846,
+                CurrencyCost = 15
+            },
+            new CurrencyTradeableItem()
+            {
+                Name = "Pixieberry",
+                ItemID = 27847,
+                CurrencyCost = 15
+            },
+            new CurrencyTradeableItem()
+            {
+                Name = "Dzo Tenderloin",
+                ItemID = 27848,
+                CurrencyCost = 15
+            },
         };
 
         public static List<CurrencyTradeableItem> WhiteGathererScripsItemsList = new List<CurrencyTradeableItem>()
@@ -377,33 +413,15 @@ namespace Doccer_Bot.Models
             },
             new CurrencyTradeableItem()
             {
-                Name = "Chiaroglow Aethersand HQ",
-                ItemID = 26734,
-                CurrencyCost = 130
-            },
-            new CurrencyTradeableItem()
-            {
                 Name = "Scuroglow Aethersand",
                 ItemID = 27812,
                 CurrencyCost = 100
             },
             new CurrencyTradeableItem()
             {
-                Name = "Scuroglow Aethersand",
-                ItemID = 27812,
-                CurrencyCost = 130
-            },
-            new CurrencyTradeableItem()
-            {
                 Name = "Agedeep Aethersand",
                 ItemID = 27813,
                 CurrencyCost = 200
-            },
-            new CurrencyTradeableItem()
-            {
-                Name = "Agedeep Aethersand",
-                ItemID = 27813,
-                CurrencyCost = 250
             },
             new CurrencyTradeableItem()
             {
@@ -413,20 +431,88 @@ namespace Doccer_Bot.Models
             },
             new CurrencyTradeableItem()
             {
-                Name = "Agewood Aethersand",
-                ItemID = 27814,
-                CurrencyCost = 250
-            },
-            new CurrencyTradeableItem()
-            {
                 Name = "Ageflow Aethersand",
                 ItemID = 27815,
                 CurrencyCost = 200
             },
+        };
+
+        public static List<CurrencyTradeableItem> YellowCrafterScripsItemsList = new List<CurrencyTradeableItem>()
+        {
             new CurrencyTradeableItem()
             {
-                Name = "Ageflow Aethersand",
-                ItemID = 27815,
+                Name = "Craftsman's Competence Materia VI",
+                ItemID = 18025,
+                CurrencyCost = 250
+            },
+            new CurrencyTradeableItem()
+            {
+                Name = "Craftsman's Cunning Materia VI",
+                ItemID = 18026,
+                CurrencyCost = 250
+            },
+            new CurrencyTradeableItem()
+            {
+                Name = "Craftsman's Command Materia VI",
+                ItemID = 18027,
+                CurrencyCost = 250
+            },
+            new CurrencyTradeableItem()
+            {
+                Name = "Craftsman's Competence Materia VII",
+                ItemID = 25194,
+                CurrencyCost = 250
+            },
+            new CurrencyTradeableItem()
+            {
+                Name = "Craftsman's Cunning Materia VII",
+                ItemID = 25195,
+                CurrencyCost = 250
+            },
+            new CurrencyTradeableItem()
+            {
+                Name = "Craftsman's Command Materia VII",
+                ItemID = 18027,
+                CurrencyCost = 250
+            },
+        };
+
+        public static List<CurrencyTradeableItem> YellowGathererScripsItemsList = new List<CurrencyTradeableItem>()
+        {
+            new CurrencyTradeableItem()
+            {
+                Name = "Gatherer's Guerdon Materia VI",
+                ItemID = 18022,
+                CurrencyCost = 250
+            },
+            new CurrencyTradeableItem()
+            {
+                Name = "Gatherer's Guile Materia VI",
+                ItemID = 18023,
+                CurrencyCost = 250
+            },
+            new CurrencyTradeableItem()
+            {
+                Name = "Gatherer's Grasp Materia VI",
+                ItemID = 18024,
+                CurrencyCost = 250
+            },
+            new CurrencyTradeableItem()
+            {
+                Name = "Gatherer's Guerdon Materia VII",
+                ItemID = 25191,
+                CurrencyCost = 250
+            },
+            new CurrencyTradeableItem()
+            {
+                Name = "Gatherer's Guile Materia VII",
+                ItemID = 25192,
+                CurrencyCost = 250
+            },
+            new CurrencyTradeableItem()
+            {
+                Name = "Gatherer's Grasp Materia VII",
+                ItemID = 25193,
                 CurrencyCost = 250
             },
         };
