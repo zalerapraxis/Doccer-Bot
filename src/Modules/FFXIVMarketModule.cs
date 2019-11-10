@@ -456,21 +456,17 @@ namespace Doccer_Bot.Modules
             var plotModel = new PlotModel()
             {
                 TextColor = OxyColor.Parse("#FFFFFF"),
-            };
-
-            // data config
-            var dataSeries = new LineSeries()
-            {
-                MarkerFill = OxyColor.Parse("#FFFFFF"),
-                MarkerType = MarkerType.Circle,
-                MarkerSize = 2,
-                Color = OxyColor.Parse("#7289DA"),
+                IsLegendVisible = true,
+                LegendPlacement = LegendPlacement.Inside,
+                LegendPosition = LegendPosition.BottomLeft,
+                LegendTextColor = OxyColor.Parse("#FFFFFF"),
+                LegendLineSpacing = 5,
             };
 
             // axes config
             var dateAxis = new DateTimeAxis()
             {
-                Title = "Date",
+                Title = "Time",
                 Position = AxisPosition.Bottom,
                 AxislineColor = OxyColor.Parse("#FFFFFF"),
                 TicklineColor = OxyColor.Parse("#FFFFFF"),
@@ -485,14 +481,74 @@ namespace Doccer_Bot.Modules
                 Position = AxisPosition.Left
             };
 
-            // adding history data in
-            foreach (var historyPoint in historyQueryResults)
-                dataSeries.Points.Add(new DataPoint(DateTimeAxis.ToDouble(historyPoint.SaleDate), historyPoint.SoldPrice));
+            // build dictionary of lineseries, where we can pair server+datasets
+            var Lines = new Dictionary<string, LineSeries>();
+            foreach (var listing in historyQueryResults)
+            {
+                if (Lines.ContainsKey(listing.Server) == false)
+                {
+                    Lines.Add(listing.Server, new LineSeries
+                    {
+                        Title = listing.Server,
+                        MarkerFill = OxyColor.Parse("#FFFFFF"),
+                        MarkerType = MarkerType.Circle,
+                        MarkerSize = 2,
+                        StrokeThickness = 0.75
+                    });
+                }
+            }
+
+            // populate lineseries in dictionary with data
+            foreach (var listing in historyQueryResults) // iterate through listings
+            {
+                foreach (var line in Lines) // with each listing, check through the list of lineseries
+                {
+                    if (line.Key.Equals(listing.Server)) // if this listing's server matches the line's key
+                    {
+                        line.Value.Points.Add(new DataPoint(DateTimeAxis.ToDouble(listing.SaleDate), listing.SoldPrice));
+                    }
+                }
+            }
+
+            // build an average list line
+            var avgSeries = new LineSeries
+            {
+                Title = "Average",
+                LineStyle = LineStyle.LongDash,
+                Color = OxyColor.Parse("#FF00FF"),
+                StrokeThickness = 2,
+            };
+
+            // collect every point, where points represent sold items
+            var allPoints = new List<DataPoint>();
+            foreach (var line in Lines)
+            {
+                allPoints.AddRange(line.Value.Points);
+            }
+
+            // avg out data
+            double xmax = allPoints.Max(x => x.X);
+            double xmin = allPoints.Min(x => x.X);
+            int bins = 12;
+            double groupSize = (xmax - xmin) / (bins - 1);
+
+            var grouped = allPoints
+                .OrderBy(x => x.X)
+                .GroupBy(x => groupSize * (int)(x.X / groupSize))
+                .Select(x => new { xval = x.Key, yavg = x.Average(y => y.Y) })
+                .ToList();
+
+            // add to line list
+            foreach (var kv in grouped) avgSeries.Points.Add(new DataPoint(DateTimeAxis.ToDouble(kv.xval + groupSize/2f), kv.yavg));
+
 
             // put it all together
-            plotModel.Series.Add(dataSeries);
             plotModel.Axes.Add(dateAxis);
             plotModel.Axes.Add(priceAxis);
+            // add each lineseries to the plot
+            foreach (var line in Lines)
+                plotModel.Series.Add(line.Value);
+            plotModel.Series.Add(avgSeries);
 
             // save plot as svg
             using (var stream = File.Create($"{itemName}.svg"))
