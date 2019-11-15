@@ -165,6 +165,11 @@ namespace Doccer_Bot.Services
             {
                 var apiResponse = QueryCustomApiForListings(itemId, server).Result;
 
+                // handle no listings for item
+                if (apiResponse.GetType() == typeof(MarketAPIRequestFailureStatus) &&
+                    apiResponse == MarketAPIRequestFailureStatus.NoResults)
+                    return;
+
                 foreach (var listing in apiResponse.Prices)
                 {
                     // build a marketlisting with the info we get from method parameters and the api call
@@ -212,6 +217,11 @@ namespace Doccer_Bot.Services
             var tasks = Task.Run(() => Parallel.ForEach(tempServerList, parallelOptions, server =>
             {
                 var apiResponse = QueryCustomApiForHistory(itemId, server).Result;
+
+                // handle no listings for item
+                if (apiResponse.GetType() == typeof(MarketAPIRequestFailureStatus) &&
+                    apiResponse == MarketAPIRequestFailureStatus.NoResults)
+                    return;
 
                 foreach (var listing in apiResponse.history)
                 {
@@ -450,11 +460,7 @@ namespace Doccer_Bot.Services
                 var neededQuantity = input.NeededQuantity;
                 var shouldBeHq = input.ShouldBeHQ;
                 // for large requests, take a RAM hit to grab more listings
-                var numOfListingsToTake = 15;
-                if (neededQuantity > 99)
-                    numOfListingsToTake = 20;
-                if (neededQuantity > 200)
-                    numOfListingsToTake = 25;
+                var numOfListingsToTake = 17;
 
                 var listings = GetMarketListings(itemName, itemId, datacenter).Result;
 
@@ -632,6 +638,7 @@ namespace Doccer_Bot.Services
                 try
                 {
                     dynamic apiResponse = await $"{_customMarketApiUrl}/market/?id={itemId}&server={server}".GetJsonAsync();
+                    await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"Getting {itemId} from {server} - gave {apiResponse}"));
 
 
                     if ((object)apiResponse != null)

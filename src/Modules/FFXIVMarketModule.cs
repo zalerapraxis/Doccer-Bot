@@ -1076,8 +1076,7 @@ namespace Doccer_Bot.Modules
             purchaseOrderEmbed.WithFooter($"Took {timer.ElapsedMilliseconds} ms");
 
             await plsWaitMsg.DeleteAsync();
-
-            await ReplyAsync("If any items are missing from the list, it's likely they'd take too many purchases to fulfill easily.", false, purchaseOrderEmbed.Build());
+            await ReplyAsync("If any items are missing from the list, it's likely they'd take too many purchases to process. Consider using the market price (mbp) command for missing items.", false, purchaseOrderEmbed.Build());
         }
 
 
