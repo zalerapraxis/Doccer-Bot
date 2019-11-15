@@ -1,5 +1,3 @@
-#Doccer-Bot
+# Doccer-Bot
 
----
-
-- Install ntp & enable its service, disable hypervisor's time synchronization service if applicable.
+Discord bot with realtime market stats and scheduling and dumb memes and bad code
