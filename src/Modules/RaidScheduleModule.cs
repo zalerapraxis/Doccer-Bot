@@ -39,7 +39,7 @@ namespace Doccer_Bot.Modules
 
             if (result == true)
             {
-                var server = Servers.ServerList.Find(x => x.DiscordServer == Context.Guild);
+                var server = Servers.ServerList.Find(x => x.DiscordServerObject == Context.Guild);
 
                 StringBuilder responseBuilder = new StringBuilder();
                 responseBuilder.Append($"Event {server.Events[0].Name} adjusted - ");
@@ -142,7 +142,7 @@ namespace Doccer_Bot.Modules
             }
 
             // build our new server object
-            var newServer = new Server()
+            var newServer = new DiscordServer()
             {
                 ConfigChannelId = configChannelId.ToString(),
                 ReminderChannelId = reminderChannelId.ToString(),
@@ -183,7 +183,7 @@ namespace Doccer_Bot.Modules
         [Summary("Manually display upcoming events")]
         public async Task CalendarEventsAsync()
         {
-            var server = Servers.ServerList.Find(x => x.DiscordServer == Context.Guild);
+            var server = Servers.ServerList.Find(x => x.DiscordServerObject == Context.Guild);
             if (server != null)
                 await ScheduleService.GetEvents(Context);
             else
@@ -196,7 +196,7 @@ namespace Doccer_Bot.Modules
         [RequireUserPermission(GuildPermission.Administrator)]
         public async Task ToggleRemindersAsync()
         {
-            var server = Servers.ServerList.Find(x => x.DiscordServer == Context.Guild);
+            var server = Servers.ServerList.Find(x => x.DiscordServerObject == Context.Guild);
 
             if (server.RemindersEnabled)
                 server.RemindersEnabled = false;

@@ -61,7 +61,7 @@ namespace Doccer_Bot.Services
         }
 
         // log in to all servers
-        public async Task Login(Server server)
+        public async Task Login(DiscordServer server)
         {
             var credentialPath = $@"{_credentialPathPrefix}/{server.ServerId}";
 
@@ -94,11 +94,11 @@ namespace Doccer_Bot.Services
         }
 
         // called whenever .sync command is used, and at first program launch
-        public async Task<bool> ManualSync(Server server = null, SocketCommandContext context = null)
+        public async Task<bool> ManualSync(DiscordServer server = null, SocketCommandContext context = null)
         {
             // if server is null, context is not null - we're calling via command, so get the right server via context
             if (server == null && context != null)
-                server = Servers.ServerList.Find(x => x.DiscordServer == context.Guild);
+                server = Servers.ServerList.Find(x => x.DiscordServerObject == context.Guild);
 
             // check if we're authenticated and have a calendar id to sync from
             var syncStatus = CheckIfSyncPossible(server);
@@ -144,7 +144,7 @@ namespace Doccer_Bot.Services
 
         // logic for pulling data from api and adding it to CalendarEvents list, returns bool representing
         // if calendar had events or not
-        public bool SyncFromGoogleCalendar(Server server)
+        public bool SyncFromGoogleCalendar(DiscordServer server)
         {
             // Set the timespan of events to sync
             var min = TimezoneAdjustedDateTime.Now.Invoke();
@@ -253,7 +253,7 @@ namespace Doccer_Bot.Services
 
         public bool? AdjustUpcomingEvent(string function, int value, SocketCommandContext context)
         {
-            var server = Servers.ServerList.Find(x => x.DiscordServer == context.Guild);
+            var server = Servers.ServerList.Find(x => x.DiscordServerObject == context.Guild);
 
             // if no events, return null
             if (!server.Events.Any())
@@ -289,7 +289,7 @@ namespace Doccer_Bot.Services
 
         // check if we're authorized and if we have a calendar id, and prompt the user to set up either if needed
         // returns true if we're authorized and have a calendar id, returns false if either checks are false
-        public CalendarSyncStatus CheckIfSyncPossible(Server server)
+        public CalendarSyncStatus CheckIfSyncPossible(DiscordServer server)
         {
             // check if we have credentials for google apiitem
             if (server.GoogleUserCredential == null)
@@ -302,15 +302,15 @@ namespace Doccer_Bot.Services
                 return CalendarSyncStatus.EmptyCalendarId;
 
             // if server object is assigned, the bot is connected, but the bot is not connected to this server, we're probably kicked
-            if (server.DiscordServer != null && server.DiscordServer.Available &&
-                ((SocketGuild) server.DiscordServer).IsConnected == false)
+            if (server.DiscordServerObject != null && server.DiscordServerObject.Available &&
+                ((SocketGuild) server.DiscordServerObject).IsConnected == false)
             {
                 // DEBUG
                 Task.Run((async () =>
                 {
                     await _logger.Log(new LogMessage(LogSeverity.Verbose, GetType().Name,
-                        $"DEBUG - Name: {server.DiscordServer.Name} - Available: {server.DiscordServer.Available} " +
-                        $"Connected: {((SocketGuild) server.DiscordServer).IsConnected} - WE SHOULD NOT SEE THIS. THIS SHOULD BE HANDLED AT THE START OF A TIMER TICK."));
+                        $"DEBUG - Name: {server.DiscordServerObject.Name} - Available: {server.DiscordServerObject.Available} " +
+                        $"Connected: {((SocketGuild) server.DiscordServerObject).IsConnected} - WE SHOULD NOT SEE THIS. THIS SHOULD BE HANDLED AT THE START OF A TIMER TICK."));
                 }));
                 return CalendarSyncStatus.ServerUnavailable;
             }
@@ -339,7 +339,7 @@ namespace Doccer_Bot.Services
         public async Task SetCalendarId(string calendarId, SocketCommandContext context)
         {
             // grab server by id of current guild via context
-            var server = Servers.ServerList.Find(x => x.DiscordServer == context.Guild);
+            var server = Servers.ServerList.Find(x => x.DiscordServerObject == context.Guild);
 
             // and its index in the ServerList so we can assign to the ServerList directly
             var serverIndex = Servers.ServerList.IndexOf(server);
@@ -386,7 +386,7 @@ namespace Doccer_Bot.Services
             var authCode = userInput.Split('=', '&')[1];
 
             // grab server by id of current guild via context
-            var server = Servers.ServerList.Find(x => x.DiscordServer == context.Guild);
+            var server = Servers.ServerList.Find(x => x.DiscordServerObject == context.Guild);
 
             var credentialPath = $@"{_credentialPathPrefix}/{server.ServerId}";
 

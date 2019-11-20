@@ -33,116 +33,56 @@ namespace Doccer_Bot.Modules
 
         private Dictionary<IUser, IUserMessage> _dictFindItemUserEmbedPairs = new Dictionary<IUser, IUserMessage>();
 
+        private Datacenter DefaultDatacenter = Datacenter.aether;
+
 
         [Command("market price", RunMode = RunMode.Async)]
         [Alias("mbp")]
         [Summary("Get prices for an item - takes item name or item id")]
         [Example("market price (server) {name/id}")]
         // function will attempt to parse server from searchTerm, no need to make a separate param
-        public async Task MarketGetItemPriceAsync([Remainder] string inputs)
+        public async Task MarketGetItemPriceAsync([Remainder] string input)
         {
             // convert to lowercase so that if user specified server in capitals,
             // it doesn't break our text matching in serverlist and with api request
-            inputs = inputs.ToLower();
+            input = input.ToLower();
 
             // show that the bot's processing
             await Context.Channel.TriggerTypingAsync();
 
-            // try to get server name from the given text
-            var pattern = new Regex(@"\W");
-            var server = pattern.Split(inputs).FirstOrDefault(x => MarketService.ServerList.Contains(x));
+            var worldsToSearch = GetServerOrDatacenterParameter(input);
+            input = CleanCommandInput(input);
 
-            // if server's not null, user provided a specific server
-            // remove server name from the text
-            if (server != null)
-                inputs = ReplaceWholeWord(inputs, $"{server}", "").Trim();
-
-            // set datacenter - if server param was passed and that server's in primal, we can use that, too
-            var datacenter = Datacenter.Aether;
-            // aether is default, but aether dc could be passed by user or by user-interact function, so handle it just in case
-            // using regex to match whole words, so we don't trigger this check with things like 'aethersand'
-            if (Regex.Match(inputs, @"\baether\b", RegexOptions.IgnoreCase).Success || server != null && MarketService.ServerList_Aether.Contains(server))
-            {
-                datacenter = Datacenter.Aether;
-                if (inputs.Contains("aether"))
-                    inputs = ReplaceWholeWord(inputs, "aether", "").Trim();
-            }
-            if (Regex.Match(inputs, @"\bprimal\b", RegexOptions.IgnoreCase).Success || server != null && MarketService.ServerList_Primal.Contains(server))
-            {
-                datacenter = Datacenter.Primal;
-                if (inputs.Contains("primal")) // second check here since getting datacenter by world means inputs wouldn't contain a dc
-                    inputs = ReplaceWholeWord(inputs, "primal", "");
-            }
-
-            // check if the API is operational, handle it if it's not
-            var apiStatus = await MarketService.GetCompanionApiStatus(server);
-            if (apiStatus != MarketAPIRequestFailureStatus.OK)
-            {
-                string apiStatusHumanResponse = await GetCustomAPIStatusHumanResponse(apiStatus);
-
-                await ReplyAsync(apiStatusHumanResponse);
-                return;
-            }
 
             // declare vars - these will get populated eventually
             int itemId;
             string itemName = "";
             string itemIconUrl = "";
 
-            // try to see if the given text is an item ID
-            var searchTermIsItemId = int.TryParse(inputs, out itemId);
+            // try to get an itemid from input - may return null
+            var itemIdResponse = await GetItemIdFromInput(input, InteractiveCommandReturn.Price, worldsToSearch);
 
-
-            // if user passed a itemname, get corresponding itemid. Does any of the following:
-
-            // * call the interactive user select function and terminates, if there are multiple search results
-            //      in this case, the interactive user select function will re-run the function and pass a single item ID
-
-            // * assigns itemid to search result, if there was only one search result, and then continue the function
-            if (!searchTermIsItemId)
+            // handle getitemidfrominput errors
+            if (itemIdResponse == null || itemIdResponse <= 0)
             {
-                // response is either a ordereddictionary of keyvaluepairs, or null
-                var itemIdQueryResult = await MarketService.SearchForItemByName(inputs);
-
-                if (itemIdQueryResult == null)
+                switch (itemIdResponse)
                 {
-                    await ReplyAsync("Something is wrong with XIVAPI. Try using Garlandtools to get the item's ID and use that instead.");
-                    return;
-                }
-
-                // no results
-                if (itemIdQueryResult.Count == 0)
-                {
-                    await ReplyAsync("No tradable items found. Try to expand your search terms, or check for typos. ");
-                    return;
-                }
-
-                // too many results
-                if (itemIdQueryResult.Count > 15)
-                {
-                    var resultcount = $"{itemIdQueryResult.Count}";
-                    if (itemIdQueryResult.Count == 100)
-                        resultcount = "100+";
-
-                    await ReplyAsync($"Too many results found ({resultcount}). Try to narrow down your search terms, or use `.item search` to get your item's ID and use that instead.");
-                    return;
-                }
-
-                // if more than one result was found, send the results to the selection function to narrow it down to one
-                // terminate this function, as the selection function will eventually re-call this method with a single result item
-                // 10 is the max number of items we can use interactiveuserselectitem with
-                if (itemIdQueryResult.Count > 1 && itemIdQueryResult.Count < 15) 
-                {
-                    await InteractiveUserSelectItem(itemIdQueryResult, "market", datacenter, server);
-                    return;
-                }
-
-                // if only one result was found, select it and continue without any prompts
-                if (itemIdQueryResult.Count == 1)
-                {
-                    itemId = itemIdQueryResult[0].ID;
+                    case null: // something wrong with xivapi
+                        await ReplyAsync("Something is wrong with XIVAPI. Try using Garlandtools to get the item's ID and use that instead.");
+                        return;
+                    case 0: // handing off to interactiveusercallback
+                        return;
+                    case -1: // no results
+                        await ReplyAsync("No tradable items found. Try to expand your search terms, or check for typos. ");
+                        return;
+                    case -2: // too many results
+                        await ReplyAsync("Too many results were found via that search term. Try narrowing it down, or use an item ID instead.");
+                        return;
                 }
             }
+
+            // set itemId as the non-null itemId response
+            itemId = itemIdResponse.Value;
 
             // get the item name & assign it
             var itemDetailsQueryResult = await MarketService.QueryXivapiWithItemId(itemId);
@@ -154,12 +94,12 @@ namespace Doccer_Bot.Modules
                 return;
             }
 
+            // assign more vars from results
             itemName = itemDetailsQueryResult.Name;
             itemIconUrl = $"https://xivapi.com/{itemDetailsQueryResult.Icon}";
 
-            // get market data - server param can be null, since this function sees server as optional null
-            // if user specified a server, it'll send one, but otherwise the function will check on all servers
-            var marketQueryResults = await MarketService.GetMarketListings(itemName, itemId, datacenter, server);
+            // get market data
+            var marketQueryResults = await MarketService.GetMarketListings(itemName, itemId, worldsToSearch);
 
             if (marketQueryResults.Count == 0)
             {
@@ -169,7 +109,6 @@ namespace Doccer_Bot.Modules
             }
 
             // format market data & display
-
             var pages = new List<PaginatedMessage.Page>();
 
             var i = 0;
@@ -196,8 +135,7 @@ namespace Doccer_Bot.Modules
                         sbListing.Append($"for {listing.CurrentPrice * listing.Quantity} (**{listing.CurrentPrice}** per unit) ");
                     else // single units
                         sbListing.Append($"for **{listing.CurrentPrice}** ");
-                    if (server == null)
-                        sbListing.Append($"on **{listing.Server}**");
+                    sbListing.Append($"on **{listing.Server}**");
                     sbListing.AppendLine();
                 }
 
@@ -250,109 +188,47 @@ namespace Doccer_Bot.Modules
         [Summary("Get history for an item - takes item name or item id")]
         [Example("market price (server) {name/id}")]
         // function will attempt to parse server from searchTerm, no need to make a separate param
-        public async Task MarketGetItemHistoryAsync([Remainder] string inputs)
+        public async Task MarketGetItemHistoryAsync([Remainder] string input)
         {
             // convert to lowercase so that if user specified server in capitals,
             // it doesn't break our text matching in serverlist and with api request
-            inputs = inputs.ToLower();
+            input = input.ToLower();
 
             // show that the bot's processing
             await Context.Channel.TriggerTypingAsync();
 
-            // try to get server name from the given text
-            var pattern = new Regex(@"\W");
-            var server = pattern.Split(inputs).FirstOrDefault(x => MarketService.ServerList.Contains(x));
-
-            // if server's not null, user provided a specific server
-            // remove server name from the text
-            if (server != null)
-                inputs = ReplaceWholeWord(inputs, $"{server}", "").Trim();
-
-            // set datacenter - if server param was passed and that server's in primal, we can use that, too
-            var datacenter = Datacenter.Aether;
-            // aether is default, but aether dc could be passed by user or by user-interact function, so handle it just in case
-            // using regex to match whole words, so we don't trigger this check with things like 'aethersand'
-            if (Regex.Match(inputs, @"\baether\b", RegexOptions.IgnoreCase).Success || server != null && MarketService.ServerList_Aether.Contains(server))
-            {
-                datacenter = Datacenter.Aether;
-                if (inputs.Contains("aether"))
-                    inputs = ReplaceWholeWord(inputs, "aether", "").Trim();
-            }
-            if (Regex.Match(inputs, @"\bprimal\b", RegexOptions.IgnoreCase).Success || server != null && MarketService.ServerList_Primal.Contains(server))
-            {
-                datacenter = Datacenter.Primal;
-                if (inputs.Contains("primal")) // second check here since getting datacenter by world means inputs wouldn't contain a dc
-                    inputs = ReplaceWholeWord(inputs, "primal", "");
-            }
-
-            // check if the API is operational, handle it if it's not
-            var apiStatus = await MarketService.GetCompanionApiStatus(server);
-            if (apiStatus != MarketAPIRequestFailureStatus.OK)
-            {
-                string apiStatusHumanResponse = await GetCustomAPIStatusHumanResponse(apiStatus);
-
-                await ReplyAsync(apiStatusHumanResponse);
-                return;
-            }
+            var worldsToSearch = GetServerOrDatacenterParameter(input);
+            input = CleanCommandInput(input);
 
             // declare vars - both of these will get populated eventually
             int itemId;
             string itemName = "";
             string itemIconUrl = "";
 
-            // try to see if the given text is an item ID
-            var searchTermIsItemId = int.TryParse(inputs, out itemId);
+            // try to get an itemid from input - may return null
+            var itemIdResponse = await GetItemIdFromInput(input, InteractiveCommandReturn.History, worldsToSearch);
 
-
-            // if user passed a itemname, get corresponding itemid. Does any of the following:
-
-            // * call the interactive user select function and terminates, if there are multiple search results
-            //      in this case, the interactive user select function will re-run the function and pass a single item ID
-
-            // * assigns itemid to search result, if there was only one search result, and then continue the function
-            if (!searchTermIsItemId)
+            // handle getitemidfrominput errors
+            if (itemIdResponse == null || itemIdResponse <= 0)
             {
-                // response is either a ordereddictionary of keyvaluepairs, or null
-                var itemIdQueryResult = await MarketService.SearchForItemByName(inputs);
-
-                if (itemIdQueryResult == null)
+                switch (itemIdResponse)
                 {
-                    await ReplyAsync("Something is wrong with XIVAPI. Try using Garlandtools to get the item's ID and use that instead.");
-                    return;
-                }
-
-                // no results
-                if (itemIdQueryResult.Count == 0)
-                {
-                    await ReplyAsync("No tradable items found. Try to expand your search terms, or check for typos.");
-                    return;
-                }
-
-                // too many results
-                if (itemIdQueryResult.Count > 15)
-                {
-                    var resultcount = $"{itemIdQueryResult.Count}";
-                    if (itemIdQueryResult.Count == 100)
-                        resultcount = "100+";
-
-                    await ReplyAsync($"Too many results found ({resultcount}). Try to narrow down your search terms, or use `.item search` to get your item's ID and use that instead.");
-                    return;
-                }
-
-                // if more than one result was found, send the results to the selection function to narrow it down to one
-                // terminate this function, as the selection function will eventually re-call this method with a single result item
-                if (itemIdQueryResult.Count > 1)
-                {
-                    await InteractiveUserSelectItem(itemIdQueryResult, "history", datacenter, server);
-                    return;
-                }
-
-                // if only one result was found, select it and continue without any prompts
-                if (itemIdQueryResult.Count == 1)
-                {
-                    itemId = itemIdQueryResult[0].ID;
+                    case null: // something wrong with xivapi
+                        await ReplyAsync("Something is wrong with XIVAPI. Try using Garlandtools to get the item's ID and use that instead.");
+                        return;
+                    case 0: // handing off to interactiveusercallback
+                        return;
+                    case -1: // no results
+                        await ReplyAsync("No tradable items found. Try to expand your search terms, or check for typos. ");
+                        return;
+                    case -2: // too many results
+                        await ReplyAsync("Too many results were found via that search term. Try narrowing it down, or use an item ID instead.");
+                        return;
                 }
             }
+
+            // set itemId as the non-null itemId response
+            itemId = itemIdResponse.Value;
 
             // get the item name & assign it
             var itemDetailsQueryResult = await MarketService.QueryXivapiWithItemId(itemId);
@@ -369,7 +245,7 @@ namespace Doccer_Bot.Modules
 
             // get market data - server param can be null, since this function sees server as optional null
             // if user specified a server, it'll send one, but otherwise the function will check on all servers
-            var historyQueryResults = await MarketService.GetHistoryListings(itemName, itemId, datacenter, server);
+            var historyQueryResults = await MarketService.GetHistoryListings(itemName, itemId, worldsToSearch);
 
             if (historyQueryResults.Count == 0)
             {
@@ -377,7 +253,6 @@ namespace Doccer_Bot.Modules
                     "No listings found for that item. Either nobody's selling it, or it's not marketable.");
                 return;
             }
-
 
             // format history data & display
             var pages = new List<PaginatedMessage.Page>();
@@ -408,8 +283,7 @@ namespace Doccer_Bot.Modules
                         sbListing.Append($"for **{listing.SoldPrice}** ");
                     sbListing.AppendLine();
                     sbListing.Append("››› Sold ");
-                    if (server == null)
-                        sbListing.Append($"on **{listing.Server}** ");
+                    sbListing.Append($"on **{listing.Server}** ");
                     sbListing.Append($"at {listing.SaleDate}");
                     sbListing.AppendLine();
                 }
@@ -592,116 +466,47 @@ namespace Doccer_Bot.Modules
         [Summary("Get market analysis for an item")]
         [Example("market analyze {name/id} (server) - defaults to Gilgamesh")]
         // function will attempt to parse server from searchTerm, no need to make a separate param
-        public async Task MarketAnalyzeItemAsync([Remainder] string inputs)
+        public async Task MarketAnalyzeItemAsync([Remainder] string input)
         {
             // convert to lowercase so that if user specified server in capitals,
             // it doesn't break our text matching in serverlist and with api request
-            inputs = inputs.ToLower();
+            input = input.ToLower();
 
             // show that the bot's processing
             await Context.Channel.TriggerTypingAsync();
 
-            // try to get server name from the given text
-            var pattern = new Regex(@"\W");
-            var server = pattern.Split(inputs).FirstOrDefault(x => MarketService.ServerList.Contains(x));
-
-            // if server's not null, user provided a specific server
-            // remove server name from the text
-            if (server != null)
-                inputs = ReplaceWholeWord(inputs, $"{server}", "").Trim();
-
-            // FIX
-
-            // set datacenter - if server param was passed and that server's in primal, we can use that, too
-            var datacenter = Datacenter.Aether;
-            // aether is default, but aether dc could be passed by user or by user-interact function, so handle it just in case
-            // using regex to match whole words, so we don't trigger this check with things like 'aethersand'
-            if (Regex.Match(inputs, @"\baether\b", RegexOptions.IgnoreCase).Success || server != null && MarketService.ServerList_Aether.Contains(server))
-            {
-                datacenter = Datacenter.Aether;
-                if (inputs.Contains("aether"))
-                    inputs = ReplaceWholeWord(inputs, "aether", "").Trim();
-            }
-            if (Regex.Match(inputs, @"\bprimal\b", RegexOptions.IgnoreCase).Success || server != null && MarketService.ServerList_Primal.Contains(server))
-            {
-                datacenter = Datacenter.Primal;
-                if (inputs.Contains("primal")) // second check here since getting datacenter by world means inputs wouldn't contain a dc
-                    inputs = ReplaceWholeWord(inputs, "primal", "");
-            }
-
-            // check if the API is operational, handle it if it's not
-            var apiStatus = await MarketService.GetCompanionApiStatus(server);
-            if (apiStatus != MarketAPIRequestFailureStatus.OK)
-            {
-                string apiStatusHumanResponse = await GetCustomAPIStatusHumanResponse(apiStatus);
-
-                await ReplyAsync(apiStatusHumanResponse);
-                return;
-            }
+            var worldsToSearch = GetServerOrDatacenterParameter(input);
+            input = CleanCommandInput(input);
 
             // declare vars - both of these will get populated eventually
             int itemId;
             string itemName = "";
             string itemIconUrl = "";
 
-            // try to see if the given text is an item ID
-            var searchTermIsItemId = int.TryParse(inputs, out itemId);
+            // try to get an itemid from input - may return null
+            var itemIdResponse = await GetItemIdFromInput(input, InteractiveCommandReturn.Analyze, worldsToSearch);
 
-
-            // if user passed a itemname, get corresponding itemid. Does any of the following:
-
-            // * call the interactive user select function and terminates, if there are multiple search results
-            //      in this case, the interactive user select function will re-run the function and pass a single item ID
-
-            // * assigns itemid to search result, if there was only one search result, and then continue the function
-            if (!searchTermIsItemId)
+            // handle getitemidfrominput errors
+            if (itemIdResponse == null || itemIdResponse <= 0)
             {
-                // remove any trailing spaces
-                if (inputs.EndsWith(" "))
-                    inputs = inputs.Remove(inputs.Length - 1);
-
-                // response is either a ordereddictionary of keyvaluepairs, or null
-                var itemIdQueryResult = await MarketService.SearchForItemByName(inputs);
-
-                if (itemIdQueryResult == null)
+                switch (itemIdResponse)
                 {
-                    await ReplyAsync("Something is wrong with XIVAPI. Try using Garlandtools to get the item's ID and use that instead.");
-                    return;
-                }
-
-                // no results
-                if (itemIdQueryResult.Count == 0)
-                {
-                    await ReplyAsync("No tradable items found. Try to expand your search terms, or check for typos.");
-                    return;
-                }
-
-                // too many results
-                if (itemIdQueryResult.Count > 15)
-                {
-                    var resultcount = $"{itemIdQueryResult.Count}";
-                    if (itemIdQueryResult.Count == 100)
-                        resultcount = "100+";
-
-                    await ReplyAsync(
-                        $"Too many results found ({resultcount}). Try to narrow down your search terms, or use `.item search` to get your item's ID and use that instead.");
-                    return;
-                }
-
-                // if more than one result was found, send the results to the selection function to narrow it down to one
-                // terminate this function, as the selection function will eventually re-call this method with a single result item
-                if (itemIdQueryResult.Count > 1)
-                {
-                    await InteractiveUserSelectItem(itemIdQueryResult, "analyze", datacenter, server);
-                    return;
-                }
-
-                // if only one result was found, select it and continue without any prompts
-                if (itemIdQueryResult.Count == 1)
-                {
-                    itemId = itemIdQueryResult[0].ID;
+                    case null: // something wrong with xivapi
+                        await ReplyAsync("Something is wrong with XIVAPI. Try using Garlandtools to get the item's ID and use that instead.");
+                        return;
+                    case 0: // handing off to interactiveusercallback
+                        return;
+                    case -1: // no results
+                        await ReplyAsync("No tradable items found. Try to expand your search terms, or check for typos. ");
+                        return;
+                    case -2: // too many results
+                        await ReplyAsync("Too many results were found via that search term. Try narrowing it down, or use an item ID instead.");
+                        return;
                 }
             }
+
+            // set itemId as the non-null itemId response
+            itemId = itemIdResponse.Value;
 
             // get the item name & assign it
             var itemDetailsQueryResult = await MarketService.QueryXivapiWithItemId(itemId);
@@ -720,7 +525,7 @@ namespace Doccer_Bot.Modules
 
             // get market data - server param can be null, since this function sees server as optional null
             // if user specified a server, it'll send one, but otherwise the function will check on all servers
-            var marketAnalysis = await MarketService.CreateMarketAnalysis(itemName, itemId, datacenter, server);
+            var marketAnalysis = await MarketService.CreateMarketAnalysis(itemName, itemId, worldsToSearch);
             var hqMarketAnalysis = marketAnalysis[0];
             var nqMarketAnalysis = marketAnalysis[1];
 
@@ -768,8 +573,8 @@ namespace Doccer_Bot.Modules
 
             StringBuilder embedNameBuilder = new StringBuilder();
             embedNameBuilder.Append($"Market analysis for {itemName}");
-            if (server != null)
-                embedNameBuilder.Append($" on {server}");
+            if (worldsToSearch.Count == 1)
+                embedNameBuilder.Append($" on {worldsToSearch[0]}");
 
             analysisEmbedBuilder.Author = new EmbedAuthorBuilder()
             {
@@ -788,9 +593,9 @@ namespace Doccer_Bot.Modules
         [Summary("Get best items to spend your tomes/seals on")]
         [Example("market exchange {currency} (server) - defaults to Gilgamesh")]
         // function will attempt to parse server from searchTerm, no need to make a separate param
-        public async Task MarketGetBestCurrencyExchangesAsync([Remainder] string inputs = null)
+        public async Task MarketGetBestCurrencyExchangesAsync([Remainder] string input = null)
         {
-            if (inputs == null || !inputs.Any())
+            if (input == null || !input.Any())
             {
                 StringBuilder categoryListBuilder = new StringBuilder();
                 categoryListBuilder.AppendLine("These are the categories you can check:");
@@ -811,54 +616,21 @@ namespace Doccer_Bot.Modules
 
             // convert to lowercase so that if user specified server in capitals,
             // it doesn't break our text matching in serverlist and with api request
-            inputs = inputs.ToLower();
+            input = input.ToLower();
 
             // show that the bot's processing
             await Context.Channel.TriggerTypingAsync();
 
-            // try to get server name from the given text
-            var pattern = new Regex(@"\W");
-            var server = pattern.Split(inputs).FirstOrDefault(x => MarketService.ServerList.Contains(x));
+            var worldsToSearch = GetServerOrDatacenterParameter(input);
+            input = CleanCommandInput(input);
 
-            // if server's not null, user provided a specific server
-            // remove server name from the text
-            if (server != null)
-                inputs = ReplaceWholeWord(inputs, $"{server}", "").Trim();
-
-            // set datacenter - if server param was passed and that server's in primal, we can use that, too
-            var datacenter = Datacenter.Aether;
-            // aether is default, but aether dc could be passed by user or by user-interact function, so handle it just in case
-            // using regex to match whole words, so we don't trigger this check with things like 'aethersand'
-            if (Regex.Match(inputs, @"\baether\b", RegexOptions.IgnoreCase).Success || server != null && MarketService.ServerList_Aether.Contains(server))
-            {
-                datacenter = Datacenter.Aether;
-                if (inputs.Contains("aether"))
-                    inputs = ReplaceWholeWord(inputs, "aether", "").Trim();
-            }
-            if (Regex.Match(inputs, @"\bprimal\b", RegexOptions.IgnoreCase).Success || server != null && MarketService.ServerList_Primal.Contains(server))
-            {
-                datacenter = Datacenter.Primal;
-                if (inputs.Contains("primal")) // second check here since getting datacenter by world means inputs wouldn't contain a dc
-                    inputs = ReplaceWholeWord(inputs, "primal", "");
-            }
-
-            // check if the API is operational, handle it if it's not
-            var apiStatus = await MarketService.GetCompanionApiStatus(server);
-            if (apiStatus != MarketAPIRequestFailureStatus.OK)
-            {
-                string apiStatusHumanResponse = await GetCustomAPIStatusHumanResponse(apiStatus);
-
-                await ReplyAsync(apiStatusHumanResponse);
-                return;
-            }
-
-            string category = inputs;
+            string category = input;
 
             // show that the bot's processing
             await Context.Channel.TriggerTypingAsync();
 
             // grab data from api
-            var currencyDeals = await MarketService.GetBestCurrencyExchange(category, datacenter, server);
+            var currencyDeals = await MarketService.GetBestCurrencyExchange(category, worldsToSearch);
 
             // keep items that are actively selling, and order by value ratio to put the best stuff to sell on top
             currencyDeals = currencyDeals.Where(x => x.NumRecentSales > 5).OrderByDescending(x => x.ValueRatio).ToList();
@@ -900,8 +672,8 @@ namespace Doccer_Bot.Modules
 
             StringBuilder embedNameBuilder = new StringBuilder();
             embedNameBuilder.Append($"{category}");
-            if (server != null)
-                embedNameBuilder.Append($" on {server}");
+            if (worldsToSearch.Count == 1)
+                embedNameBuilder.Append($" on {worldsToSearch[0]}");
 
             var authorurl = "";
 
@@ -951,9 +723,9 @@ namespace Doccer_Bot.Modules
         [Alias("mbo")]
         [Summary("Build a list of the lowest market prices for items, ordered by server")]
         [Example("market order {itemname:count, itemname:count, etc...}")]
-        public async Task MarketCrossWorldPurchaseOrderAsync([Remainder] string inputs = null)
+        public async Task MarketCrossWorldPurchaseOrderAsync([Remainder] string input = null)
         {
-            if (inputs == null || !inputs.Any())
+            if (input == null || !input.Any())
             {
                 // let the user know they fucked up, or don't
                 return;
@@ -961,49 +733,22 @@ namespace Doccer_Bot.Modules
 
             // convert to lowercase so that if user specified server in capitals,
             // it doesn't break our text matching in serverlist and with api request
-            inputs = inputs.ToLower();
+            input = input.ToLower();
 
-            // set datacenter - if server param was passed and that server's in primal, we can use that, too
-            var datacenter = Datacenter.Aether;
-            // aether is default, but aether dc could be passed by user or by user-interact function, so handle it just in case
-            // using regex to match whole words, so we don't trigger this check with things like 'aethersand'
-            if (Regex.Match(inputs, @"\baether\b", RegexOptions.IgnoreCase).Success)
-            {
-                datacenter = Datacenter.Aether;
-                if (inputs.Contains("aether"))
-                    inputs = ReplaceWholeWord(inputs, "aether", "").Trim();
-            }
-            if (Regex.Match(inputs, @"\bprimal\b", RegexOptions.IgnoreCase).Success)
-            {
-                datacenter = Datacenter.Primal;
-                if (inputs.Contains("primal")) // second check here since getting datacenter by world means inputs wouldn't contain a dc
-                    inputs = ReplaceWholeWord(inputs, "primal", "");
-            }
-
-            // show that the bot's processing
-            await Context.Channel.TriggerTypingAsync();
-
-            // check if the API is operational, handle it if it's not
-            var apiStatus = await MarketService.GetCompanionApiStatus("gilgamesh"); // order doesn't use a specific server, so just picking one for now
-            if (apiStatus != MarketAPIRequestFailureStatus.OK)
-            {
-                string apiStatusHumanResponse = await GetCustomAPIStatusHumanResponse(apiStatus);
-
-                await ReplyAsync(apiStatusHumanResponse);
-                return;
-            }
+            var worldsToSearch = GetServerOrDatacenterParameter(input);
+            input = CleanCommandInput(input);
 
             // split each item:count pairing
-            var inputList = inputs.Split(", ");
+            var inputList = input.Split(", ");
 
             
             var itemsList = new List<MarketItemXWOrderModel>();
-            foreach (var input in inputList)
+            foreach (var item in inputList)
             {
-                var inputSplit = input.Split(":");
+                var itemSplit = item.Split(":");
 
-                var itemName = inputSplit[0];
-                var NeededQuantity = int.Parse(inputSplit[1]);
+                var itemName = itemSplit[0];
+                var NeededQuantity = int.Parse(itemSplit[1]);
                 var itemShouldBeHQ = false;
 
                 // replace hq text in itemname var if it exists, and set shouldbehq flag to true
@@ -1020,7 +765,7 @@ namespace Doccer_Bot.Modules
 
             var timer = Stopwatch.StartNew();
 
-            var results = await MarketService.GetMarketCrossworldPurchaseOrder(itemsList, datacenter);
+            var results = await MarketService.GetMarketCrossworldPurchaseOrder(itemsList, worldsToSearch);
 
             timer.Stop();
 
@@ -1153,7 +898,7 @@ namespace Doccer_Bot.Modules
             // it's expected that this function will be the last call in a function before that terminates, and that the callback function
             // will re-run the function with the user-selected data
             // optional server parameter to preserve server filter option
-            private async Task InteractiveUserSelectItem(List<ItemSearchResultModel> itemsList, string functionToCall, Datacenter datacenter, string server = null)
+        private async Task InteractiveUserSelectItem(List<ItemSearchResultModel> itemsList, InteractiveCommandReturn function, List<string> worldsToSearch)
         {
             string[] numbers = new[] { "0⃣", "1⃣", "2⃣", "3⃣", "4⃣", "5⃣", "6⃣", "7⃣", "8⃣", "9⃣", "🇦", "🇧", "🇨", "🇩", "🇪" };
             var numberEmojis = new List<Emoji>();
@@ -1182,8 +927,7 @@ namespace Doccer_Bot.Modules
             {
                 var counter = i;
                 var itemId = itemsList[i].ID;
-                messageContents.AddCallBack(numberEmojis[counter], async (c, r) => HandleInteractiveUserSelectCallback(itemId, functionToCall, datacenter, server));
-
+                messageContents.AddCallBack(numberEmojis[counter], async (c, r) => HandleInteractiveUserSelectCallback(itemId, function, worldsToSearch));
             }
 
             var message = await InlineReactionReplyAsync(messageContents);
@@ -1197,8 +941,23 @@ namespace Doccer_Bot.Modules
         // this might get modified to accept a 'function' param that will run in a switch:case to
         // select what calling function this callback handler should re-run with the user-selected data
         // optional server parameter to preserve server filter option
-        private async Task HandleInteractiveUserSelectCallback(int itemId, string function, Datacenter datacenter, string server = null)
+        private async Task HandleInteractiveUserSelectCallback(int itemId, InteractiveCommandReturn function, List<string> worldsToSearch)
         {
+            string searchLocation = "";
+            
+            // figure out what world or datacenter we should pass to the command
+            if (worldsToSearch.Intersect(Enum.GetNames(typeof(World))).Count() == 1)
+            {
+                searchLocation = worldsToSearch.FirstOrDefault(x => Enum.GetNames(typeof(World)).Contains(x));
+            }
+            else if (worldsToSearch.Intersect(Enum.GetNames(typeof(World))).Count() > 1)
+            {
+                if (worldsToSearch.Intersect(Enum.GetNames(typeof(WorldsAetherEnum))).Count() > 1)
+                    searchLocation = "aether";
+                else if (worldsToSearch.Intersect(Enum.GetNames(typeof(WorldsPrimalEnum))).Count() > 1)
+                    searchLocation = "primal";
+            }
+            
             // grab the calling user's pair of calling user & searchResults embed
             var dictEntry = _dictFindItemUserEmbedPairs.FirstOrDefault(x => x.Key == Context.User);
 
@@ -1208,19 +967,131 @@ namespace Doccer_Bot.Modules
 
             switch (function)
             {
-                case "market":
-                    await MarketGetItemPriceAsync($"{server} {datacenter} {itemId}");
+                case InteractiveCommandReturn.Price:
+                    await MarketGetItemPriceAsync($"{searchLocation} {itemId}");
                     break;
-                case "history":
-                    await MarketGetItemHistoryAsync($"{server} {datacenter} {itemId}");
+                case InteractiveCommandReturn.History:
+                    await MarketGetItemHistoryAsync($"{searchLocation} {itemId}");
                     break;
-                case "analyze":
-                    await MarketAnalyzeItemAsync($"{server} {datacenter} {itemId}");
+                case InteractiveCommandReturn.Analyze:
+                    await MarketAnalyzeItemAsync($"{searchLocation} {itemId}");
                     break;
             }
         }
 
-        private async Task<string> GetCustomAPIStatusHumanResponse(MarketAPIRequestFailureStatus status)
+        // returns a list of strings representing the servers that should be parsed
+        // can either be one server, in the case of the user requesting a specific server, or all servers in a datacenter
+        private List<string> GetServerOrDatacenterParameter(string input)
+        {
+            var resultsList = new List<string>();
+
+            // server handling
+
+            // try to get server name from the given text
+            var pattern = new Regex(@"\W");
+            var server = pattern.Split(input).FirstOrDefault(x => MarketService.ServerList.Contains(x));
+
+            // if we found a server, user wants that specific server, so add it to resultsList and return that
+            if (server != null)
+            {
+                resultsList.Add(server);
+                return resultsList;
+            }
+
+
+            // datacenter handling, if server not found
+            if (Regex.Match(input, @"\baether\b", RegexOptions.IgnoreCase).Success)
+            {
+                foreach (var world in Enum.GetValues(typeof(WorldsAetherEnum)))
+                    resultsList.Add(world.ToString());
+            }
+            if (Regex.Match(input, @"\bprimal\b", RegexOptions.IgnoreCase).Success)
+            {
+                foreach (var world in Enum.GetValues(typeof(WorldsPrimalEnum)))
+                    resultsList.Add(world.ToString());
+            }
+
+
+            // if nothing matched world/datacenter checks, use the default datacenter
+            if (!resultsList.Any())
+            {
+                if (DefaultDatacenter == Datacenter.aether)
+                    foreach (var world in Enum.GetValues(typeof(WorldsAetherEnum)))
+                        resultsList.Add(world.ToString());
+                if (DefaultDatacenter == Datacenter.primal)
+                    foreach (var world in Enum.GetValues(typeof(WorldsPrimalEnum)))
+                        resultsList.Add(world.ToString());
+            }
+
+            return resultsList;
+        }
+
+        private string CleanCommandInput(string input)
+        {
+            var wordsToRemove = new List<string>();
+            string result = input;
+
+            // add each possible input into a list of words to look for
+            foreach (var world in Enum.GetValues(typeof(World)))
+                wordsToRemove.Add(world.ToString());
+            foreach (var datacenter in Enum.GetValues(typeof(Datacenter)))
+                wordsToRemove.Add(datacenter.ToString());
+
+            foreach (var word in wordsToRemove)
+            {
+                if (Regex.Match(input, $@"\b{word}\b", RegexOptions.IgnoreCase).Success)
+                {
+                    result = ReplaceWholeWord(input, word, "");
+                }
+            }
+
+            return result;
+        }
+
+        private async Task<int?> GetItemIdFromInput(string input, InteractiveCommandReturn function, List<string> worldsToSearch)
+        {
+            int itemId;
+
+            // try to see if the given text is an item ID
+            var searchTermIsItemId = int.TryParse(input, out itemId);
+
+            // if user passed a itemname, get corresponding itemid.
+            if (!searchTermIsItemId)
+            {
+                // response is either a ordereddictionary of keyvaluepairs, or null
+                var itemIdQueryResult = await MarketService.SearchForItemByName(input);
+
+                // something is wrong with xivapi
+                if (itemIdQueryResult == null)
+                    return null;
+
+                // no results
+                if (itemIdQueryResult.Count == -1)
+                    return -1;
+
+                // too many results
+                if (itemIdQueryResult.Count > 15)
+                    return -2;
+
+                // if more than one result was found, send the results to the selection function to narrow it down to one
+                // terminate this function, as the selection function will eventually re-call this method with a single result item
+                // 10 is the max number of items we can use interactiveuserselectitem with
+                if (itemIdQueryResult.Count > 1 && itemIdQueryResult.Count < 15)
+                {
+                    await InteractiveUserSelectItem(itemIdQueryResult, function, worldsToSearch);
+                }
+
+                // if only one result was found, select it and continue without any prompts
+                if (itemIdQueryResult.Count == 1)
+                {
+                    itemId = itemIdQueryResult[0].ID;
+                }
+            }
+
+            return itemId;
+        }
+
+        private string GetCustomAPIStatusHumanResponse(MarketAPIRequestFailureStatus status)
         {
             string apiStatusHumanResponse = "";
 

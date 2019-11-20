@@ -51,7 +51,7 @@ namespace Doccer_Bot.Services
         public int Uses { get; set; }
     }
 
-    public class Server
+    public class DiscordServer
     {
         [BsonId]
         public ObjectId Id { get; set; }
@@ -78,7 +78,7 @@ namespace Doccer_Bot.Services
         public List<CalendarEvent> Events = new List<CalendarEvent>();
 
         [BsonIgnore]
-        public IGuild DiscordServer { get; set; }
+        public IGuild DiscordServerObject { get; set; }
 
         [BsonIgnore]
         public ITextChannel ConfigChannel { get; set; }
@@ -109,6 +109,6 @@ namespace Doccer_Bot.Services
     // internal list of servers, used for global access - not actually stored in the database
     public class Servers
     {
-        public static List<Server> ServerList = new List<Server>();
+        public static List<DiscordServer> ServerList = new List<DiscordServer>();
     }
 }

@@ -151,7 +151,7 @@ namespace Doccer_Bot.Services
             foreach (var server in servers)
             {
                 // if a channel's config or reminder channels are null, we need to set them
-                if (server.DiscordServer == null || server.ConfigChannel == null || server.ReminderChannel == null)
+                if (server.DiscordServerObject == null || server.ConfigChannel == null || server.ReminderChannel == null)
                 {
                     // set this server's discord channel & server refs
                     SetServerDiscordObjects(server);
@@ -164,9 +164,9 @@ namespace Doccer_Bot.Services
 
         // converts stored IDs from database into ulongs (mongo can't store ulong ha ha) and use them to
         // assign our discord objects
-        public void SetServerDiscordObjects(Server server)
+        public void SetServerDiscordObjects(DiscordServer server)
         {
-            server.DiscordServer = _discord.GetGuild(Convert.ToUInt64(server.ServerId));
+            server.DiscordServerObject = _discord.GetGuild(Convert.ToUInt64(server.ServerId));
             server.ConfigChannel = _discord.GetChannel(Convert.ToUInt64(server.ConfigChannelId)) as ITextChannel;
             server.ReminderChannel = _discord.GetChannel(Convert.ToUInt64(server.ReminderChannelId)) as ITextChannel;
         }

@@ -29,7 +29,7 @@ namespace Example.Modules
         {
             var channel = Context.Channel as SocketTextChannel;
             var messages = await channel.GetMessagesAsync(count).FlattenAsync();
-            var server = Servers.ServerList.Find(x => x.DiscordServer == Context.Guild);
+            var server = Servers.ServerList.Find(x => x.DiscordServerObject == Context.Guild);
 
             // remove schedule embed message from the messages list, so it doesn't get deleted
             if (server != null && server.EventEmbedMessage != null)

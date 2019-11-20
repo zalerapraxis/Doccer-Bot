@@ -9,10 +9,10 @@ namespace Doccer_Bot.Entities
         /// <summary>
         ///     Aether Datacenter
         /// </summary>
-        Aether,
+        aether,
         /// <summary>
         ///     Primal Datacenter
         /// </summary>
-        Primal,
+        primal,
     }
 }

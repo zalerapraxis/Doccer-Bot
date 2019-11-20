@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Diagnostics;
+using System.Dynamic;
 using System.Linq;
 using System.Net;
 using System.Text;
@@ -13,6 +14,7 @@ using Doccer_Bot.Models;
 using Flurl.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using MongoDB.Bson;
 using MongoDB.Bson.IO;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -143,25 +145,12 @@ namespace Doccer_Bot.Services
         }
 
         // take an item id and get the lowest market listings from across all servers, return list of MarketList of MarketItemListings
-        public async Task<List<MarketItemListingModel>> GetMarketListings(string itemName, int itemId, Datacenter datacenter, string serverFilter = null)
+        public async Task<List<MarketItemListingModel>> GetMarketListings(string itemName, int itemId, List<string> worldsToSearch)
         {   
             List<MarketItemListingModel> tempMarketList = new List<MarketItemListingModel>();
 
-            // if calling method provided server via serverOption, use that
-            // otherwise, search all servers on Aether
-            List<string> tempServerList = new List<string>();
-            if (serverFilter != null)
-                tempServerList.Add(serverFilter);
-            else
-            {
-                if (datacenter == Datacenter.Aether)
-                    tempServerList.AddRange(ServerList_Aether);
-                if (datacenter == Datacenter.Primal)
-                    tempServerList.AddRange(ServerList_Primal);
-            }
-
             // get all market entries for specified item across all servers, bundle results into tempMarketList
-            var tasks = Task.Run(() => Parallel.ForEach(tempServerList, parallelOptions, server =>
+            var tasks = Task.Run(() => Parallel.ForEach(worldsToSearch, parallelOptions, async server =>
             {
                 var apiResponse = QueryCustomApiForListings(itemId, server).Result;
 
@@ -195,26 +184,13 @@ namespace Doccer_Bot.Services
             return tempMarketList;
         }
 
-        // take an item id and get the lowest market listings from across all servers, return list of MarketList of MarketItemListings
-        public async Task<List<HistoryItemListingModel>> GetHistoryListings(string itemName, int itemId, Datacenter datacenter, string serverFilter = null)
+        // take an item id and get the lowest history listings from across all servers, return list of historylist of HistoryItemListings
+        public async Task<List<HistoryItemListingModel>> GetHistoryListings(string itemName, int itemId, List<string> worldsToSearch)
         {
             List<HistoryItemListingModel> tempHistoryList = new List<HistoryItemListingModel>();
 
-            // if calling method provided server via serverOption, use that
-            // otherwise, search all servers on Aether
-            List<string> tempServerList = new List<string>();
-            if (serverFilter != null)
-                tempServerList.Add(serverFilter);
-            else
-            {
-                if (datacenter == Datacenter.Aether)
-                    tempServerList.AddRange(ServerList_Aether);
-                if (datacenter == Datacenter.Primal)
-                    tempServerList.AddRange(ServerList_Primal);
-            }
-
             // get all market entries for specified item across all servers, bundle results into tempMarketList
-            var tasks = Task.Run(() => Parallel.ForEach(tempServerList, parallelOptions, server =>
+            var tasks = Task.Run(() => Parallel.ForEach(worldsToSearch, parallelOptions, server =>
             {
                 var apiResponse = QueryCustomApiForHistory(itemId, server).Result;
 
@@ -256,16 +232,8 @@ namespace Doccer_Bot.Services
 
 
         // returns three analysis objects: hq, nq, and overall
-        public async Task<List<MarketItemAnalysisModel>> CreateMarketAnalysis(string itemName, int itemID, Datacenter datacenter, string server = null)
+        public async Task<List<MarketItemAnalysisModel>> CreateMarketAnalysis(string itemName, int itemID, List<string> worldsToSearch)
         {
-            if (server == null)
-            {
-                if (datacenter == Datacenter.Aether)
-                    server = ServerList_Aether[0];
-                if (datacenter == Datacenter.Primal)
-                    server = ServerList_Primal[0];
-            }
-
             var analysisHQ = new MarketItemAnalysisModel();
             var analysisNQ = new MarketItemAnalysisModel();
             var analysisOverall = new MarketItemAnalysisModel(); // items regardless of quality - used for exchange command
@@ -281,8 +249,8 @@ namespace Doccer_Bot.Services
             analysisOverall.IsHQ = false;
 
             // make API requests for data
-            var apiHistoryResponse = await GetHistoryListings(itemName, itemID, datacenter, server);
-            var apiMarketResponse = await GetHistoryListings(itemName, itemID, datacenter, server);
+            var apiHistoryResponse = await GetHistoryListings(itemName, itemID, worldsToSearch);
+            var apiMarketResponse = await GetHistoryListings(itemName, itemID, worldsToSearch);
 
             // split history results by quality
             var salesHQ = apiHistoryResponse.Where(x => x.IsHq == true).ToList();
@@ -389,7 +357,7 @@ namespace Doccer_Bot.Services
         }
 
 
-        public async Task<List<CurrencyTradeableItem>> GetBestCurrencyExchange(string category, Datacenter datacenter, string server = null)
+        public async Task<List<CurrencyTradeableItem>> GetBestCurrencyExchange(string category, List<string> worldsToSearch)
         {
             List<CurrencyTradeableItem> itemsList = new List<CurrencyTradeableItem>(); // gets overwritten shortly
 
@@ -428,7 +396,7 @@ namespace Doccer_Bot.Services
             
             var tasks = Task.Run(() => Parallel.ForEach(itemsList, parallelOptions, item =>
             {
-                var analysisResponse = CreateMarketAnalysis(item.Name, item.ItemID, datacenter, server).Result;
+                var analysisResponse = CreateMarketAnalysis(item.Name, item.ItemID, worldsToSearch).Result;
                 // index 2 is the 'overall' analysis that includes both NQ and HQ items
                 var analysis = analysisResponse[2];
 
@@ -444,7 +412,7 @@ namespace Doccer_Bot.Services
         }
 
 
-        public async Task<List<MarketItemXWOrderModel>> GetMarketCrossworldPurchaseOrder(List<MarketItemXWOrderModel> inputs, Datacenter datacenter)
+        public async Task<List<MarketItemXWOrderModel>> GetMarketCrossworldPurchaseOrder(List<MarketItemXWOrderModel> inputs, List<string> worldsToSearch)
         {
             List<MarketItemXWOrderModel> PurchaseOrderList = new List<MarketItemXWOrderModel>();
 
@@ -462,7 +430,7 @@ namespace Doccer_Bot.Services
                 // for large requests, take a RAM hit to grab more listings
                 var numOfListingsToTake = 17;
 
-                var listings = GetMarketListings(itemName, itemId, datacenter).Result;
+                var listings = GetMarketListings(itemName, itemId, worldsToSearch).Result;
 
                 // if we need this item to be hq, we should filter out NQ listings now
                 if (shouldBeHq)
@@ -637,16 +605,16 @@ namespace Doccer_Bot.Services
             {
                 try
                 {
-                    dynamic apiResponse = await $"{_customMarketApiUrl}/market/?id={itemId}&server={server}".GetJsonAsync();
-                    await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"Getting {itemId} from {server} - gave {apiResponse}"));
-
-
+                    var apiResponse = await $"{_customMarketApiUrl}/market/?id={itemId}&server={server}".GetJsonAsync();
+                    
                     if ((object)apiResponse != null)
                     {
                         // check if custom API handled error - get apiResponse as dict of keyvalue pairs
                         // if the dict contains 'Error' key, it's a handled error
                         if (((IDictionary<String, object>)apiResponse).ContainsKey("Error"))
                         {
+                            await _logger.Log(new LogMessage(LogSeverity.Error, GetType().Name, $"Getting {itemId} prices from {server} - API responded with error code {apiResponse.Error} - gave {apiResponse}"));
+
                             if (apiResponse.Error == null)
                                 return MarketAPIRequestFailureStatus.APIFailure;
                             if (apiResponse.Error == "Not logged in")
@@ -659,14 +627,18 @@ namespace Doccer_Bot.Services
                                 return MarketAPIRequestFailureStatus.ServiceUnavailable;
                         }
 
-                        if (((IDictionary<String, object>)apiResponse).ContainsKey("Prices") == false)
-                            return MarketAPIRequestFailureStatus.APIFailure;
+                        // check if prices key exists
+                        if (((IDictionary<String, object>) apiResponse).ContainsKey("Prices"))
+                        {
+                            if (apiResponse.Prices == null || apiResponse.Prices.Count == 0)
+                                return MarketAPIRequestFailureStatus.NoResults;
 
-                        if (apiResponse.Prices == null || apiResponse.Prices.Count == 0)
-                            return MarketAPIRequestFailureStatus.NoResults;
+                            // success, return response
+                            return apiResponse;
+                        }
 
-                        // otherwise, return what we got
-                        return apiResponse;
+                        // prices key didn't exist, retry
+                        await _logger.Log(new LogMessage(LogSeverity.Error, GetType().Name, $"Getting {itemId} prices from {server} - API failed to respond"));
                     }
                 }
                 catch (FlurlHttpException exception)
@@ -678,6 +650,7 @@ namespace Doccer_Bot.Services
             }
 
             // return generic api failure code
+            await _logger.Log(new LogMessage(LogSeverity.Error, GetType().Name, $"Getting {itemId} price from {server} - API failed to respond after {exceptionRetryCount} retries"));
             return MarketAPIRequestFailureStatus.APIFailure;
         }
 
@@ -699,6 +672,9 @@ namespace Doccer_Bot.Services
                         // if the dict contains 'Error' key, it's a handled error
                         if (((IDictionary<String, object>)apiResponse).ContainsKey("Error"))
                         {
+                            // DEBUG
+                            await _logger.Log(new LogMessage(LogSeverity.Error, GetType().Name, $"Getting {itemId} history from {server} - API responded with error code {apiResponse.Error} - gave {apiResponse}"));
+
                             if (apiResponse.Error == null)
                                 return MarketAPIRequestFailureStatus.APIFailure;
                             if (apiResponse.Error == "Not logged in")
@@ -711,14 +687,18 @@ namespace Doccer_Bot.Services
                                 return MarketAPIRequestFailureStatus.ServiceUnavailable;
                         }
 
-                        if (((IDictionary<String, object>)apiResponse).ContainsKey("history") == false)
-                            return MarketAPIRequestFailureStatus.APIFailure;
+                        // check if history key exists
+                        if (((IDictionary<String, object>) apiResponse).ContainsKey("history"))
+                        {
+                            if (apiResponse.history == null || apiResponse.history.Count == 0)
+                                return MarketAPIRequestFailureStatus.NoResults;
 
-                        if (apiResponse.history == null || apiResponse.history.Count == 0)
-                            return MarketAPIRequestFailureStatus.NoResults;
+                            // success, return response
+                            return apiResponse;
+                        }
 
-                        // otherwise, return what we got
-                        return apiResponse;
+                        // history key didn't exist, retry
+                        await _logger.Log(new LogMessage(LogSeverity.Error, GetType().Name, $"Getting {itemId} history from {server} - API failed to respond"));
                     }
                 }
                 catch (FlurlHttpException exception)
@@ -730,6 +710,7 @@ namespace Doccer_Bot.Services
             }
 
             // return generic api failure code
+            await _logger.Log(new LogMessage(LogSeverity.Error, GetType().Name, $"Getting {itemId} history from {server} - API failed to respond after {exceptionRetryCount} retries"));
             return MarketAPIRequestFailureStatus.APIFailure;
         }
 
@@ -833,9 +814,6 @@ namespace Doccer_Bot.Services
         }
 
         // this is used to determine the most efficient order of buying items cross-world
-        // results are pre-sorted by:
-        // 1. how close to the needed value that group of listings is (greater than or equal to)
-
         // this function returns the 20 values of best 'fit' for these requirements given the parameters
         private static List<IEnumerable<MarketItemXWOrderModel>> GetMostEfficientPurchases(List<MarketItemXWOrderModel> listings, int needed)
         {
