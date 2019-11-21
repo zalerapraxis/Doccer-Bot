@@ -13,6 +13,7 @@ using System.Xml.Linq;
 using Discord;
 using Discord.Addons.Interactive;
 using Discord.Commands;
+using Doccer_Bot.Datasets;
 using Doccer_Bot.Entities;
 using Doccer_Bot.Models;
 using Doccer_Bot.Modules.Common;
@@ -34,7 +35,7 @@ namespace Doccer_Bot.Modules
         private Dictionary<IUser, IUserMessage> _dictFindItemUserEmbedPairs = new Dictionary<IUser, IUserMessage>();
 
         private Datacenter DefaultDatacenter = Datacenter.aether;
-
+        private World DefaultWorld = World.gilgamesh;
 
         [Command("market price", RunMode = RunMode.Async)]
         [Alias("mbp")]
@@ -50,7 +51,7 @@ namespace Doccer_Bot.Modules
             // show that the bot's processing
             await Context.Channel.TriggerTypingAsync();
 
-            var worldsToSearch = GetServerOrDatacenterParameter(input);
+            var worldsToSearch = GetServerOrDatacenterParameter(input, false);
             input = CleanCommandInput(input);
 
 
@@ -197,7 +198,7 @@ namespace Doccer_Bot.Modules
             // show that the bot's processing
             await Context.Channel.TriggerTypingAsync();
 
-            var worldsToSearch = GetServerOrDatacenterParameter(input);
+            var worldsToSearch = GetServerOrDatacenterParameter(input, false);
             input = CleanCommandInput(input);
 
             // declare vars - both of these will get populated eventually
@@ -475,7 +476,7 @@ namespace Doccer_Bot.Modules
             // show that the bot's processing
             await Context.Channel.TriggerTypingAsync();
 
-            var worldsToSearch = GetServerOrDatacenterParameter(input);
+            var worldsToSearch = GetServerOrDatacenterParameter(input, true);
             input = CleanCommandInput(input);
 
             // declare vars - both of these will get populated eventually
@@ -621,7 +622,7 @@ namespace Doccer_Bot.Modules
             // show that the bot's processing
             await Context.Channel.TriggerTypingAsync();
 
-            var worldsToSearch = GetServerOrDatacenterParameter(input);
+            var worldsToSearch = GetServerOrDatacenterParameter(input, true);
             input = CleanCommandInput(input);
 
             string category = input;
@@ -735,8 +736,32 @@ namespace Doccer_Bot.Modules
             // it doesn't break our text matching in serverlist and with api request
             input = input.ToLower();
 
-            var worldsToSearch = GetServerOrDatacenterParameter(input);
+            var worldsToSearch = GetServerOrDatacenterParameter(input, false);
             input = CleanCommandInput(input);
+
+            // check if user input a gearset instead of item lists
+            if (MarketOrderGearsetDataset.Gearsets.Any(x => input.Contains(x.Key)))
+            {
+                var gearset = MarketOrderGearsetDataset.Gearsets.FirstOrDefault(x => x.Key.Equals(input)).Value;
+
+                var i = 1;
+                var gearsetInputSb = new StringBuilder();
+                foreach (var item in gearset)
+                {
+                    var count = 1;
+                    if (item.Contains("Ring"))
+                        count = 2;
+
+                    gearsetInputSb.Append($"{item}:{count}");
+
+                    if (i < gearset.Count)
+                        gearsetInputSb.Append(", ");
+
+                    i++;
+                }
+
+                input = gearsetInputSb.ToString();
+            }
 
             // split each item:count pairing
             var inputList = input.Split(", ");
@@ -981,7 +1006,7 @@ namespace Doccer_Bot.Modules
 
         // returns a list of strings representing the servers that should be parsed
         // can either be one server, in the case of the user requesting a specific server, or all servers in a datacenter
-        private List<string> GetServerOrDatacenterParameter(string input)
+        private List<string> GetServerOrDatacenterParameter(string input, bool useDefaultWorld)
         {
             var resultsList = new List<string>();
 
@@ -998,6 +1023,13 @@ namespace Doccer_Bot.Modules
                 return resultsList;
             }
 
+            // if we didn't find a server, but calling function requested we use the default world instead of the default datacenter,
+            // return the default world instead of the default datacenter
+            if (useDefaultWorld && server == null)
+            {
+                resultsList.Add(DefaultWorld.ToString());
+                return resultsList;
+            }
 
             // datacenter handling, if server not found
             if (Regex.Match(input, @"\baether\b", RegexOptions.IgnoreCase).Success)

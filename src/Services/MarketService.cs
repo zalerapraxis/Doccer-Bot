@@ -364,31 +364,31 @@ namespace Doccer_Bot.Services
             switch (category)
             {
                 case "gc":
-                    itemsList = CurrencyTradeableItemsModel.GrandCompanySealItemsList;
+                    itemsList = CurrencyTradeableItemsDataset.GrandCompanySealItemsList;
                     break;
                 case "poetics":
-                    itemsList = CurrencyTradeableItemsModel.PoeticsItemsList;
+                    itemsList = CurrencyTradeableItemsDataset.PoeticsItemsList;
                     break;
                 case "gemstones":
-                    itemsList = CurrencyTradeableItemsModel.GemstonesItemsList;
+                    itemsList = CurrencyTradeableItemsDataset.GemstonesItemsList;
                     break;
                 case "nuts":
-                    itemsList = CurrencyTradeableItemsModel.NutsItemsList;
+                    itemsList = CurrencyTradeableItemsDataset.NutsItemsList;
                     break;
                 case "wgs":
-                    itemsList = CurrencyTradeableItemsModel.WhiteGathererScripsItemsList;
+                    itemsList = CurrencyTradeableItemsDataset.WhiteGathererScripsItemsList;
                     break;
                 case "wcs":
-                    itemsList = CurrencyTradeableItemsModel.WhiteCrafterScripsItemsList;
+                    itemsList = CurrencyTradeableItemsDataset.WhiteCrafterScripsItemsList;
                     break;
                 case "ygs":
-                    itemsList = CurrencyTradeableItemsModel.YellowGathererScripsItemsList;
+                    itemsList = CurrencyTradeableItemsDataset.YellowGathererScripsItemsList;
                     break;
                 case "ycs":
-                    itemsList = CurrencyTradeableItemsModel.YellowCrafterScripsItemsList;
+                    itemsList = CurrencyTradeableItemsDataset.YellowCrafterScripsItemsList;
                     break;
                 case "goetia":
-                    itemsList = CurrencyTradeableItemsModel.GoetiaItemsList;
+                    itemsList = CurrencyTradeableItemsDataset.GoetiaItemsList;
                     break;
                 default:
                     return itemsList;

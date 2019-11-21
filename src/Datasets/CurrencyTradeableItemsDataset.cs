@@ -4,7 +4,7 @@ using System.Text;
 
 namespace Doccer_Bot.Models
 {
-    public class CurrencyTradeableItemsModel
+    public class CurrencyTradeableItemsDataset
     {
         public static List<CurrencyTradeableItem> GrandCompanySealItemsList = new List<CurrencyTradeableItem>()
         {
