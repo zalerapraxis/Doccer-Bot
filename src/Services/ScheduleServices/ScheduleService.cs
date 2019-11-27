@@ -295,16 +295,8 @@ namespace Doccer_Bot.Services
             var messages = await server.ReminderChannel.GetMessagesAsync().FlattenAsync();
             // try to get a pre-existing message matching messageContains (so {eventtitle})
             //return the results or null
-            try
-            {
-                // this will raise an exception if there's no reminder message
-                var reminderMsg = messages.Where(msg => msg.Author.Id == _discord.CurrentUser.Id).First(msg => msg.Content.Contains(messageContains));
-                return (IUserMessage) reminderMsg;
-            }
-            catch
-            {
-                return null;
-            }
+            var reminderMsg = messages.Where(msg => msg.Author.Id == _discord.CurrentUser.Id).FirstOrDefault(msg => msg.Content.Contains(messageContains));
+            return (IUserMessage)reminderMsg;
         }
 
         private string GetTimeDeltaFormatting(TimeSpan timeDelta)
