@@ -723,7 +723,7 @@ namespace Doccer_Bot.Modules
         [Command("market order", RunMode = RunMode.Async)]
         [Alias("mbo")]
         [Summary("Build a list of the lowest market prices for items, ordered by server")]
-        [Example("market order {itemname:count, itemname:count, etc...}")]
+        [Example("market order {itemname:count, itemname:count, etc...} or marker order {fending, crafting, etc}")]
         public async Task MarketCrossWorldPurchaseOrderAsync([Remainder] string input = null)
         {
             if (input == null || !input.Any())
@@ -739,7 +739,7 @@ namespace Doccer_Bot.Modules
             var worldsToSearch = GetServerOrDatacenterParameter(input, false);
             input = CleanCommandInput(input);
 
-            // check if user input a gearset instead of item lists
+            // check if user input a gearset request instead of item lists
             if (MarketOrderGearsetDataset.Gearsets.Any(x => input.Contains(x.Key)))
             {
                 var gearset = MarketOrderGearsetDataset.Gearsets.FirstOrDefault(x => x.Key.Equals(input)).Value;
@@ -850,10 +850,44 @@ namespace Doccer_Bot.Modules
         }
 
 
+        [Command("market status", RunMode = RunMode.Async)]
+        [Alias("mbs")]
+        [Summary("")]
+        public async Task MarketServerStatusAsync()
+        {
+            // show that the bot's processing
+            await Context.Channel.TriggerTypingAsync();
+
+            StringBuilder serverStatusStringBuilder = new StringBuilder();
+            serverStatusStringBuilder.AppendLine("**Server status**");
+
+            var allServersList = new List<String>();
+            allServersList.AddRange(MarketService.ServerList_Aether);
+            allServersList.AddRange(MarketService.ServerList_Primal);
+
+            var tasks = Task.Run(() => Parallel.ForEach(allServersList, server =>
+            {
+                var serverStatusResult = MarketService.GetCompanionApiStatus(server).Result;
+                var serverStatus = "";
+
+                if (serverStatusResult == MarketAPIRequestFailureStatus.OK)
+                    serverStatus = "✅";
+                else
+                    serverStatus = "❌";
+
+                serverStatusStringBuilder.AppendLine($"{server}: {serverStatus}");
+            }));
+
+            await Task.WhenAll(tasks);
+
+            await ReplyAsync(serverStatusStringBuilder.ToString());
+        }
+
+
         [Command("market login", RunMode = RunMode.Async)]
         [Alias("mbl")]
         [Summary("Check status of servers & attempt to log in to any that aren't logged in")]
-        public async Task MarketServerStatusAsync()
+        public async Task MarketServerLoginAsync()
         {
             // show that the bot's processing
             await Context.Channel.TriggerTypingAsync();
