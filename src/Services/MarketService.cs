@@ -762,8 +762,15 @@ namespace Doccer_Bot.Services
                 }
                 catch (FlurlHttpException exception)
                 {
-                    await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"{exception.Message}"));
+                    // await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"{exception.Message}"));
                     await Task.Delay(exceptionRetryDelay);
+
+                    // slow down further if we're being given a rate limit error
+                    if (exception.Call.HttpStatus == (HttpStatusCode)429)
+                    {
+                        Console.WriteLine("429!");
+                        await Task.Delay(5000);
+                    }
                 }
                 i++;
             }
