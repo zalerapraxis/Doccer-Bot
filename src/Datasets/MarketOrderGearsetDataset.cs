@@ -113,7 +113,7 @@ namespace Doccer_Bot.Datasets
             "Merveilleuse",
             "Facet Hat of Casting",
             "Facet Coat of Casting",
-            "Facet Halfqloves of Casting",
+            "Facet Halfgloves of Casting",
             "Facet Plate Belt of Casting",
             "Facet Bottoms of Casting",
             "Facet Boots of Casting",
@@ -121,6 +121,49 @@ namespace Doccer_Bot.Datasets
             "Facet Choker of Casting",
             "Facet Bracelet of Casting",
             "Facet Ring of Casting",
+        };
+
+        public static List<string> craftingSet = new List<string>()
+        {
+            "Facet Hat Of Crafting",
+            "Facet Coat Of Crafting",
+            "Facet Gloves Of Crafting",
+            "Facet Trousers Of Crafting",
+            "Facet Boots Of Crafting",
+            "Facet Saw",
+            "Facet Claw Hammer",
+            "Facet Cross-Pein Hammer",
+            "Facet File",
+            "Facet Raising Hammer",
+            "Facet Pliers",
+            "Facet Mallet",
+            "Facet Grinding Wheel",
+            "Facet Round Knife",
+            "Facet Awl",
+            "Facet Needle",
+            "Facet Spinning Wheel",
+            "Facet Alembic",
+            "Facet Mortar",
+            "Facet Frypan",
+        };
+
+        public static List<string> gatheringSet = new List<string>()
+        {
+            "Facet Pickaxe",
+            "Facet Sledgehammer",
+            "Facet Scythe",
+            "Facet Hatchet",
+            "Facet Fishing Rod",
+            "Facet Cap Of Gathering",
+            "Facet Coat Of Gathering",
+            "Facet Fingerless Gloves Of Gathering",
+            "Facet Bottoms Of Gathering",
+            "Facet Boots Of Gathering",
+            "Swallowskin Survival Belt",
+            "Lignum Vitae Earrings",
+            "Lignum Vitae Necklace",
+            "Lignum Vitae Bracelet",
+            "Lignum Vitae Ring",
         };
 
         public static Dictionary<string, List<string>> Gearsets = new Dictionary<string, List<string>>()
@@ -132,6 +175,8 @@ namespace Doccer_Bot.Datasets
             { "scouting", scoutingSet },
             { "aiming", aimingSet },
             { "casting", castingSet },
+            { "crafting", craftingSet },
+            { "gathering", gatheringSet },
         };
     }
 }
