@@ -9,6 +9,7 @@ using Discord.WebSocket;
 using Doccer_Bot.Services.DatabaseServiceComponents;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using NLog;
 
 namespace Doccer_Bot.Services
 {
@@ -22,7 +23,8 @@ namespace Doccer_Bot.Services
         private readonly GoogleCalendarSyncService _googleCalendarSyncService;
         private readonly ScheduleService _scheduleService;
         private readonly DatabaseServers _databaseServers;
-        private readonly LoggingService _logger;
+
+        private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
 
         private Timer _scheduleTimer; // so garbage collection doesn't eat our timer after a bit
         public TimeSpan _timerInterval = TimeSpan.FromMinutes(5); // how often the timer will run, in minutes
@@ -31,15 +33,13 @@ namespace Doccer_Bot.Services
             DiscordSocketClient discord,
             GoogleCalendarSyncService googleCalendarSyncService,
             ScheduleService scheduleService,
-            DatabaseServers databaseServers,
-            LoggingService logger)
+            DatabaseServers databaseServers)
         {
             _discord = discord;
 
             _googleCalendarSyncService = googleCalendarSyncService;
             _scheduleService = scheduleService;
             _databaseServers = databaseServers;
-            _logger = logger;
         }
 
         public async Task Initialize()
@@ -70,8 +70,8 @@ namespace Doccer_Bot.Services
             // the time of the next scheduled timer execution
             var resultTime = DateTime.Now.AddMilliseconds(timeUntilNextInterval).ToString("HH:mm:ss");
 
-            await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, 
-                $"Starting schedule/sync timer now - Waiting {TimeSpan.FromMilliseconds(timeUntilNextInterval).TotalSeconds} seconds - next tick at {resultTime}."));
+
+            Logger.Log(LogLevel.Info, $"Starting schedule/sync timer now - Waiting {TimeSpan.FromMilliseconds(timeUntilNextInterval).TotalSeconds} seconds - next tick at {resultTime}.");
 
             // run the timer
             _scheduleTimer = new Timer(delegate { Timer_Tick(); }, null, timeUntilNextInterval, intervalMs);
@@ -88,7 +88,7 @@ namespace Doccer_Bot.Services
             var message =
                 $"Resyncing timer now - waiting {TimeSpan.FromMilliseconds(timeUntilNextInterval).TotalSeconds} seconds - next tick at {resultTime}.";
 
-            await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, message));
+            Logger.Log(LogLevel.Info, message);
 
             _scheduleTimer.Change(timeUntilNextInterval, intervalMs);
 
@@ -100,7 +100,7 @@ namespace Doccer_Bot.Services
         // timer executes these functions on each run
         private async void Timer_Tick()
         {
-            await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, "Timer ticked."));
+            Logger.Log(LogLevel.Info, "Timer ticked.");
 
             foreach (var server in Servers.ServerList)
             {
@@ -125,7 +125,7 @@ namespace Doccer_Bot.Services
                     if (syncStatus == CalendarSyncStatus.ServerUnavailable)
                     {
                         // if the bot detects that a connection error has caused objects to become outdated, we should update them here
-                        await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"DEBUG: Server {server.ServerName} was detected as disconnected, and we are reassigning its object now."));
+                        Logger.Log(LogLevel.Info, $"DEBUG: Server {server.ServerName} was detected as disconnected, and we are reassigning its object now.");
                         SetServerDiscordObjects(server);
                     }
                 }

@@ -7,6 +7,7 @@ using Discord.WebSocket;
 using System.Threading.Tasks;
 using Doccer_Bot.Modules.Common;
 using Doccer_Bot.Services;
+using NLog;
 
 namespace Example.Modules
 {
@@ -16,7 +17,8 @@ namespace Example.Modules
     public class ChatClearingModule : ModuleBase<SocketCommandContext>
     {
         public EventReactionAddedService EventReactionAddedService { get; set; }
-        public LoggingService _logger { get; set; }
+
+        private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
 
         // clear chatlogs
         [Command("clear")]
@@ -49,8 +51,7 @@ namespace Example.Modules
             }
             catch
             {
-                await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name,
-                    "Could not bulk delete messages, switching to individual deletion"));
+                Logger.Log(LogLevel.Info, "Could not bulk delete messages, switching to individual deletion");
 
                 // get messages older than two weeks, which cannot be bulk-deleted, and new messages that can be bulk-deleted
                 var oldMessages = messages.Where(msg => msg.Timestamp < DateTimeOffset.Now.AddDays(-14));

@@ -24,6 +24,7 @@ using Google.Apis.Util.Store;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Primitives;
+using NLog;
 
 namespace Doccer_Bot.Services
 {
@@ -36,7 +37,8 @@ namespace Doccer_Bot.Services
         private readonly ScheduleService _scheduleService;
         private readonly DatabaseServers _databaseServers;
         private readonly InteractiveService _interactiveService;
-        private readonly LoggingService _logger;
+
+        private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
 
         private string _filePath = "client_id.json"; // API Console -> OAuth 2.0 client IDs -> entry -> download button
         private string _credentialPathPrefix = "tokens";
@@ -49,15 +51,13 @@ namespace Doccer_Bot.Services
             IConfigurationRoot config,
             InteractiveService interactiveService,
             ScheduleService scheduleService,
-            DatabaseServers datbaseServers,
-            LoggingService logger)
+            DatabaseServers datbaseServers)
         {
             _config = config;
 
             _interactiveService = interactiveService;
             _scheduleService = scheduleService;
             _databaseServers = datbaseServers;
-            _logger = logger;
         }
 
         // log in to all servers
@@ -308,9 +308,8 @@ namespace Doccer_Bot.Services
                 // DEBUG
                 Task.Run((async () =>
                 {
-                    await _logger.Log(new LogMessage(LogSeverity.Verbose, GetType().Name,
-                        $"DEBUG - Name: {server.DiscordServerObject.Name} - Available: {server.DiscordServerObject.Available} " +
-                        $"Connected: {((SocketGuild) server.DiscordServerObject).IsConnected} - WE SHOULD NOT SEE THIS. THIS SHOULD BE HANDLED AT THE START OF A TIMER TICK."));
+                    Logger.Log(LogLevel.Debug, $"DEBUG - Name: {server.DiscordServerObject.Name} - Available: {server.DiscordServerObject.Available} " +
+                                               $"Connected: {((SocketGuild)server.DiscordServerObject).IsConnected} - WE SHOULD NOT SEE THIS. THIS SHOULD BE HANDLED AT THE START OF A TIMER TICK.");
                 }));
                 return CalendarSyncStatus.ServerUnavailable;
             }

@@ -18,13 +18,14 @@ using MongoDB.Bson;
 using MongoDB.Bson.IO;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using NLog;
 using JsonConvert = Newtonsoft.Json.JsonConvert;
 
 namespace Doccer_Bot.Services
 {
     public class MarketService
     {
-        private readonly LoggingService _logger;
+        private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
 
         private string _customMarketApiUrl;
         private string _xivapiKey;
@@ -76,10 +77,8 @@ namespace Doccer_Bot.Services
         private int exceptionRetryCount = 5; // number of times to retry api requests
         private int exceptionRetryDelay = 1000; // ms delay between retries
 
-        public MarketService(IConfigurationRoot config, LoggingService logger)
+        public MarketService(IConfigurationRoot config)
         {
-            _logger = logger;
-
             _customMarketApiUrl = config["custommarketapiurl"];
             _xivapiKey = config["xivapikey"];
 
@@ -529,7 +528,7 @@ namespace Doccer_Bot.Services
                     if (exception.Call.HttpStatus == HttpStatusCode.NotFound)
                         return MarketAPIRequestFailureStatus.NoResults;
 
-                    await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"{exception.Message}"));
+                    Logger.Log(LogLevel.Error, $"{exception.Message}");
                     await Task.Delay(exceptionRetryDelay);
                 }
                 i++;
@@ -559,7 +558,7 @@ namespace Doccer_Bot.Services
                 }
                 catch (FlurlHttpException exception)
                 {
-                    await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"{exception.Message}"));
+                    Logger.Log(LogLevel.Error, $"{exception.Message}");
                     await Task.Delay(exceptionRetryDelay);
                 }
                 i++;
@@ -585,7 +584,7 @@ namespace Doccer_Bot.Services
                 }
                 catch (FlurlHttpException exception)
                 {
-                    await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"{exception.Message}"));
+                    Logger.Log(LogLevel.Error, $"{exception.Message}");
                     await Task.Delay(exceptionRetryDelay);
                 }
                 i++;
@@ -613,7 +612,7 @@ namespace Doccer_Bot.Services
                         // if the dict contains 'Error' key, it's a handled error
                         if (((IDictionary<String, object>)apiResponse).ContainsKey("Error"))
                         {
-                            await _logger.Log(new LogMessage(LogSeverity.Error, GetType().Name, $"Getting {itemId} prices from {server} - API responded with error code {apiResponse.Error} - gave {apiResponse}"));
+                            Logger.Log(LogLevel.Error, $"Getting {itemId} prices from {server} - API responded with error code {apiResponse.Error} - gave {apiResponse}");
 
                             if (apiResponse.Error == null)
                                 return MarketAPIRequestFailureStatus.APIFailure;
@@ -638,19 +637,19 @@ namespace Doccer_Bot.Services
                         }
 
                         // prices key didn't exist, retry
-                        await _logger.Log(new LogMessage(LogSeverity.Error, GetType().Name, $"Getting {itemId} prices from {server} - API failed to respond"));
+                        Logger.Log(LogLevel.Error, $"Getting {itemId} prices from {server} - API failed to respond");
                     }
                 }
                 catch (FlurlHttpException exception)
                 {
-                    await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"{exception.Message}"));
+                    Logger.Log(LogLevel.Error, $"{exception.Message}");
                     await Task.Delay(exceptionRetryDelay);
                 }
                 i++;
             }
 
             // return generic api failure code
-            await _logger.Log(new LogMessage(LogSeverity.Error, GetType().Name, $"Getting {itemId} price from {server} - API failed to respond after {exceptionRetryCount} retries"));
+            Logger.Log(LogLevel.Error, $"Getting {itemId} price from {server} - API failed to respond after {exceptionRetryCount} retries");
             return MarketAPIRequestFailureStatus.APIFailure;
         }
 
@@ -673,7 +672,7 @@ namespace Doccer_Bot.Services
                         if (((IDictionary<String, object>)apiResponse).ContainsKey("Error"))
                         {
                             // DEBUG
-                            await _logger.Log(new LogMessage(LogSeverity.Error, GetType().Name, $"Getting {itemId} history from {server} - API responded with error code {apiResponse.Error} - gave {apiResponse}"));
+                            Logger.Log(LogLevel.Error, $"Getting {itemId} history from {server} - API responded with error code {apiResponse.Error} - gave {apiResponse}");
 
                             if (apiResponse.Error == null)
                                 return MarketAPIRequestFailureStatus.APIFailure;
@@ -698,19 +697,19 @@ namespace Doccer_Bot.Services
                         }
 
                         // history key didn't exist, retry
-                        await _logger.Log(new LogMessage(LogSeverity.Error, GetType().Name, $"Getting {itemId} history from {server} - API failed to respond"));
+                        Logger.Log(LogLevel.Error, $"Getting {itemId} history from {server} - API failed to respond");
                     }
                 }
                 catch (FlurlHttpException exception)
                 {
-                    await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"{exception.Message}"));
+                    Logger.Log(LogLevel.Error, $"{exception.Message}");
                     await Task.Delay(exceptionRetryDelay);
                 }
                 i++;
             }
 
             // return generic api failure code
-            await _logger.Log(new LogMessage(LogSeverity.Error, GetType().Name, $"Getting {itemId} history from {server} - API failed to respond after {exceptionRetryCount} retries"));
+            Logger.Log(LogLevel.Error, $"Getting {itemId} history from {server} - API failed to respond after {exceptionRetryCount} retries");
             return MarketAPIRequestFailureStatus.APIFailure;
         }
 
@@ -733,7 +732,7 @@ namespace Doccer_Bot.Services
                 }
                 catch (FlurlHttpException exception)
                 {
-                    await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"{exception.Message}"));
+                    Logger.Log(LogLevel.Error, $"{exception.Message}");
                     await Task.Delay(exceptionRetryDelay);
                 }
                 i++;
@@ -762,7 +761,7 @@ namespace Doccer_Bot.Services
                 }
                 catch (FlurlHttpException exception)
                 {
-                    // await _logger.Log(new LogMessage(LogSeverity.Info, GetType().Name, $"{exception.Message}"));
+                    Logger.Log(LogLevel.Error, $"{exception.Message}");
                     await Task.Delay(exceptionRetryDelay);
 
                     // slow down further if we're being given a rate limit error

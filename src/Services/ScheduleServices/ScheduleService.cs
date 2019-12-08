@@ -13,6 +13,7 @@ using Example;
 using Google.Apis.Calendar.v3.Data;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using NLog;
 
 namespace Doccer_Bot.Services
 {
@@ -25,8 +26,9 @@ namespace Doccer_Bot.Services
         private readonly IConfiguration _config;
 
         private readonly TextMemeService _textMemeService;
-        private readonly LoggingService _logger;
-        
+
+        private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
         public ScheduleService(
             DiscordSocketClient discord,
             IConfigurationRoot config,
@@ -37,7 +39,6 @@ namespace Doccer_Bot.Services
             _discord = discord;
 
             _textMemeService = textMemeService;
-            _logger = logger;
         }
 
         // send or modify messages alerting the user that an event will be starting soon
@@ -68,14 +69,15 @@ namespace Doccer_Bot.Services
                     if (calendarEvent.AlertMessage != null)
                     {
                         await calendarEvent.AlertMessage.ModifyAsync(m => m.Content = messageContents);
-                        await _logger.Log(new LogMessage(LogSeverity.Verbose, GetType().Name, $"DEBUG - {server.ServerName} - An event is between 15m and 1h from now and we did have an alert message, editing it."));
+
+                        Logger.Log(LogLevel.Debug, $"DEBUG - {server.ServerName} - An event is between 15m and 1h from now and we did have an alert message, editing it.");
                     }
                     // if there wasn't an alert message, send a new message
                     else
                     {
                         var msg = await server.ReminderChannel.SendMessageAsync(messageContents);
                         calendarEvent.AlertMessage = msg;
-                        await _logger.Log(new LogMessage(LogSeverity.Verbose, GetType().Name, $"DEBUG - {server.ServerName} - An event is between 15m and 1h from now and we did not have an alert message, sending one."));
+                        Logger.Log(LogLevel.Debug, $"DEBUG - {server.ServerName} - An event is between 15m and 1h from now and we did not have an alert message, sending one.");
                     }
                 }
 
@@ -88,14 +90,14 @@ namespace Doccer_Bot.Services
                     if (calendarEvent.AlertMessage != null)
                     {
                         await calendarEvent.AlertMessage.ModifyAsync(m => m.Content = messageContents);
-                        await _logger.Log(new LogMessage(LogSeverity.Verbose, GetType().Name, $"DEBUG - {server.ServerName} - The event is less than 15m from now and we did have an alert message, editing it."));
+                        Logger.Log(LogLevel.Debug, $"DEBUG - {server.ServerName} - The event is less than 15m from now and we did have an alert message, editing it.");
                     }
                     // if there wasn't an alert message, send a new message
                     else
                     {
                         var msg = await server.ReminderChannel.SendMessageAsync(messageContents);
                         calendarEvent.AlertMessage = msg;
-                        await _logger.Log(new LogMessage(LogSeverity.Verbose, GetType().Name, $"DEBUG - {server.ServerName} - The event is less than 15m from now and we did not have an alert message, sending one."));
+                        Logger.Log(LogLevel.Debug, $"DEBUG - {server.ServerName} - The event is less than 15m from now and we did not have an alert message, sending one.");
                     }
                 }
 
@@ -113,14 +115,14 @@ namespace Doccer_Bot.Services
                     if (calendarEvent.AlertMessage != null)
                     {
                         await calendarEvent.AlertMessage.ModifyAsync(m => m.Content = messageContents);
-                        await _logger.Log(new LogMessage(LogSeverity.Verbose, GetType().Name, $"DEBUG - {server.ServerName} - The event is underway and we had an alert message, editing it."));
+                        Logger.Log(LogLevel.Debug, $"DEBUG - {server.ServerName} - The event is underway and we had an alert message, editing it.");
                     }
                     // if there wasn't an alert message, send a new message
                     else
                     {
                         var msg = await server.ReminderChannel.SendMessageAsync(messageContents);
                         calendarEvent.AlertMessage = msg;
-                        await _logger.Log(new LogMessage(LogSeverity.Verbose, GetType().Name, $"DEBUG - {server.ServerName} - The event is underway and we did not have an alert message, sending one."));
+                        Logger.Log(LogLevel.Debug, $"DEBUG - {server.ServerName} - The event is underway and we did not have an alert message, sending one.");
                     }
                 }
 
@@ -129,7 +131,7 @@ namespace Doccer_Bot.Services
                 {
                     await calendarEvent.AlertMessage.DeleteAsync();
                     calendarEvent.AlertMessage = null;
-                    await _logger.Log(new LogMessage(LogSeverity.Verbose, GetType().Name, $"DEBUG - {server.ServerName} - The event end date is less than 5 mins from now, deleting alert message."));
+                    Logger.Log(LogLevel.Debug, $"DEBUG - {server.ServerName} - The event end date is less than 5 mins from now, deleting alert message.");
                 }
 
                 // if the event is over an hour from now and an alert message exists, delete it.
@@ -138,12 +140,11 @@ namespace Doccer_Bot.Services
                     // await calendarEvent.AlertMessage.DeleteAsync();
 
                     calendarEvent.AlertMessage = null;
-                    await _logger.Log(new LogMessage(LogSeverity.Verbose, GetType().Name, $"DEBUG - {server.ServerName} - The event start date is over an hour away, we would have deleted the alert message."));
+                    Logger.Log(LogLevel.Debug, $"DEBUG - {server.ServerName} - The event start date is over an hour away, we would have deleted the alert message.");
                 }
 
                 if (calendarEvent.AlertMessage != null)
-                    await _logger.Log(new LogMessage(LogSeverity.Verbose, GetType().Name,
-                    $"DEBUG - msg ID: {calendarEvent.AlertMessage.Id} - edited: {calendarEvent.AlertMessage.EditedTimestamp} - contents: {calendarEvent.AlertMessage.Content}"));
+                    Logger.Log(LogLevel.Debug, $"DEBUG - msg ID: {calendarEvent.AlertMessage.Id} - edited: {calendarEvent.AlertMessage.EditedTimestamp} - contents: {calendarEvent.AlertMessage.Content}");
             }
         }
 

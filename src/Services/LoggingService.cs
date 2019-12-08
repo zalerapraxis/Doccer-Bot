@@ -4,11 +4,16 @@ using Discord.WebSocket;
 using System;
 using System.IO;
 using System.Threading.Tasks;
+using NLog;
+using NLog.LayoutRenderers;
+using NLog.Layouts;
 
 namespace Doccer_Bot.Services
 {
     public class LoggingService
     {
+        private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
         private readonly DiscordSocketClient _discord;
         private readonly CommandService _commands;
 
@@ -25,30 +30,30 @@ namespace Doccer_Bot.Services
             
             _discord.Log += OnLogAsync;
             _commands.Log += OnLogAsync;
+
+            var logConfig = new NLog.Config.LoggingConfiguration();
+            
+            var logFile = new NLog.Targets.FileTarget("logFile") { FileName = _logFile };
+            var logConsole = new NLog.Targets.ConsoleTarget("logConsole");
+
+            logConfig.AddRule(LogLevel.Info, LogLevel.Fatal, logFile);
+            logConfig.AddRule(LogLevel.Info, LogLevel.Fatal, logConsole);
+
+            NLog.LogManager.Configuration = logConfig;
         }
 
-        public async Task Log(LogMessage msg)
+        private void HandleDiscordLogs(LogSeverity severity, string source, string message, Exception exception = null)
         {
-            await DoLogging(msg.Severity, msg.Source, msg.Message, msg.Exception);
+            var logLevel = LogLevel.FromString(Enum.Parse(typeof(LogSeverity), severity.ToString()).ToString());
+
+            Logger.Log(logLevel, message);
         }
 
-        private Task DoLogging(LogSeverity severity, string source, string message, Exception exception = null)
-        {
-            if (!Directory.Exists(_logDirectory))     // Create the log directory if it doesn't exist
-                Directory.CreateDirectory(_logDirectory);
-            if (!File.Exists(_logFile))               // Create today's log file if it doesn't exist
-                File.Create(_logFile).Dispose();
-
-            string logText = $"{DateTime.UtcNow.ToString("hh:mm:ss")} [{severity}] {source}: {exception?.ToString() ?? message}";
-            File.AppendAllText(_logFile, logText + "\n");     // Write the log text to a file
-
-            return Console.Out.WriteLineAsync(logText);       // Write the log text to the console
-        }
 
         // passes LogMessages from discordclient and commandservice over to the logging function
         private async Task OnLogAsync(LogMessage msg)
         {
-            await DoLogging(msg.Severity, msg.Source, msg.Message, msg.Exception);
+            HandleDiscordLogs(msg.Severity, msg.Source, msg.Message, msg.Exception);
         }
     }
 }
