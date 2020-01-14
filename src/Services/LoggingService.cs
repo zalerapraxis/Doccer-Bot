@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using NLog;
 using NLog.LayoutRenderers;
 using NLog.Layouts;
+using NLog.Targets;
 
 namespace Doccer_Bot.Services
 {
@@ -18,7 +19,7 @@ namespace Doccer_Bot.Services
         private readonly CommandService _commands;
 
         private string _logDirectory { get; }
-        private string _logFile => Path.Combine(_logDirectory, $"{DateTime.UtcNow.ToString("yyyy-MM-dd")}.txt");
+        private string _logFile => Path.Combine(_logDirectory, "log.txt");
 
         // DiscordSocketClient and CommandService are injected automatically from the IServiceProvider
         public LoggingService(DiscordSocketClient discord, CommandService commands)
@@ -33,7 +34,7 @@ namespace Doccer_Bot.Services
 
             var logConfig = new NLog.Config.LoggingConfiguration();
             
-            var logFile = new NLog.Targets.FileTarget("logFile") { FileName = _logFile };
+            var logFile = new NLog.Targets.FileTarget("logFile") { FileName = _logFile, ArchiveEvery = FileArchivePeriod.Day };
             var logConsole = new NLog.Targets.ConsoleTarget("logConsole");
 
             logConfig.AddRule(LogLevel.Info, LogLevel.Fatal, logFile);
