@@ -28,7 +28,7 @@ namespace Doccer_Bot.Modules
 {
     [Name("Market")]
     [Remarks("Realtime FFXIV market data")]
-    public class FFXIVMarketModule : InteractiveBase
+    public class MarketModule : InteractiveBase
     {
         public MarketService MarketService { get; set; }
 

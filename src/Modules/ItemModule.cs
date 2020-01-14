@@ -16,7 +16,7 @@ namespace Doccer_Bot.Modules
 {
     [Name("Item")]
     [Remarks("Searching for FFXIV items")]
-    public class FFXIVItemModule : InteractiveBase
+    public class ItemModule : InteractiveBase
     {
         public MarketService MarketService { get; set; }
 
