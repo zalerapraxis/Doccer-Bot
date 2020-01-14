@@ -100,8 +100,6 @@ namespace Doccer_Bot.Services
         // timer executes these functions on each run
         private async void Timer_Tick()
         {
-            Logger.Log(LogLevel.Info, "Timer ticked.");
-
             foreach (var server in Servers.ServerList)
             {
                 // check if it's possible for us to sync
